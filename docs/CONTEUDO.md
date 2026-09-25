@@ -4,35 +4,44 @@ Todo o conteúdo é **dado** (TypeScript em `src/content/`). As telas não mudam
 quando entram hinos ou lições novas. No futuro, os mesmos objetos podem vir de
 uma API/JSON.
 
-## 1. Músicas (hinos, estudos, exercícios)
+## 1. Hinos (hinário da organista)
 
-Uma música é um `Song` (`src/content/types.ts`). A forma mais rápida de escrever
-as notas é a **notação de texto** (`src/content/notation.ts`):
+Cada hino é um `Song` em `src/content/songs/hymns.ts`, escrito **a 4 vozes**,
+como no hinário da organista. Soprano e contralto ficam na clave de Sol (mão
+direita); tenor e baixo na clave de Fá (mão esquerda). Com as vozes separadas,
+o aluno pode praticar uma voz, uma mão ou o hino inteiro, e a partitura desenha
+as hastes para cima (soprano/tenor) e para baixo (contralto/baixo).
 
 ```ts
-import { twoHands } from '../notation';
+import { fourVoices } from '../notation';
 
 {
   id: 'hino-158',
   kind: 'hymn',
   hymnNumber: 158,
   title: 'Título do hino',
-  tempo: 76,                 // semínimas por minuto
+  tempo: 76,                 // ♩ = 76 (indicação de metrônomo do hinário)
   timeSignature: [4, 4],
   keySignature: -1,          // -1 = Fá maior (1 bemol); 1 = Sol maior…
   difficulty: 2,
   instruments: ['organ', 'piano'],
-  sections: [                // trechos para praticar em partes (em batidas)
-    { id: 'l1', label: '1ª linha', startBeat: 0, endBeat: 16 },
+  sections: [                // linhas/estrofes para praticar em partes (em batidas)
+    { id: 'l1', label: '1ª linha', startBeat: 0, endBeat: 12 },
   ],
-  notes: twoHands(
-    // mão direita (soprano + contralto)
-    '[A4 F4]/h:4,2 [G4 E4]/q [F4 C4] | [C5 F4]/w',
-    // mão esquerda (tenor + baixo)
-    '[F3 A3]/h [C3 C4]/q [F3 A3] | [F2 A3]/w',
-  ),
+  ...fourVoices({
+    soprano: 'A4/h:4 G4/q:3 F4 | C5/w',
+    alto:    'F4/h:2 E4/q:1 C4 | F4/w',
+    tenor:   'C4/h D4/q A3 | A3/w',
+    bass:    'F3/h C3/q F3 | F2/w',
+  }),
 }
 ```
+
+Ao cadastrar o `hymnNumber`, o hino aparece destacado na grade do Hinário e
+abre com partitura, notas caindo e escuta do teclado. Os títulos dos 480 hinos
+podem ser preenchidos em `hymnTitles` (mesmo arquivo).
+
+A notação de cada voz:
 
 | Símbolo | Significado |
 | --- | --- |

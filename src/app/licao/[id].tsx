@@ -12,7 +12,6 @@ import type { PracticeMode } from '@/engine/practice-session';
 import { starsFor } from '@/engine/scoring';
 import { FindKeyStep, ListenStep, QuizStep } from '@/features/lesson/TheorySteps';
 import { PracticePlayer } from '@/features/player/PracticePlayer';
-import { useLandscape } from '@/features/player/use-landscape';
 import { useProgress } from '@/store/progress';
 import { colors, radius, space } from '@/theme';
 
@@ -25,7 +24,6 @@ const STEP_MODE: Record<'watch' | 'practice' | 'play' | 'rhythm', PracticeMode> 
 
 /** Executa uma lição passo a passo, como uma fase do Simply Piano. */
 export default function LessonScreen() {
-  useLandscape();
   const { id } = useLocalSearchParams<{ id: string }>();
   const ref = getLesson(id);
   const [stepIndex, setStepIndex] = useState(0);

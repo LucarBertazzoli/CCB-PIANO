@@ -25,6 +25,7 @@ export interface RestEvent {
   start: number;
   duration: number;
   hand: Hand;
+  voice?: Voice;
 }
 
 /** Trecho nomeado da música (estrofe, coro, frase) para praticar em partes. */

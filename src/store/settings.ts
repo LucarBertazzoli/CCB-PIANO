@@ -7,7 +7,8 @@ import type { InputSourceKind } from '@/input/types';
 import type { Notation } from '@/music/theory';
 
 export type NoteLabelMode = 'name' | 'finger' | 'none';
-export type ViewMode = 'falling' | 'sheet';
+/** falling = notas caindo; page = partitura completa (hinário); sheet = partitura rolando (lições). */
+export type ViewMode = 'falling' | 'page' | 'sheet';
 
 export interface SettingsState {
   notation: Notation;
@@ -25,6 +26,8 @@ export interface SettingsState {
   playAccompaniment: boolean;
   metronome: boolean;
   viewMode: ViewMode;
+  /** Mostra o teclado na tela junto com a partitura. */
+  showKeyboard: boolean;
   /** Libera todas as lições (útil para professores e para montar conteúdo). */
   unlockAll: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
@@ -44,8 +47,9 @@ export const useSettings = create<SettingsState>()(
       volume: 0.8,
       playAccompaniment: true,
       metronome: false,
-      viewMode: 'falling',
+      viewMode: 'page',
       unlockAll: false,
+      showKeyboard: true,
       set: (patch) => set(patch),
     }),
     { name: 'ccb-piano-settings', storage: createJSONStorage(() => AsyncStorage), version: 1 },

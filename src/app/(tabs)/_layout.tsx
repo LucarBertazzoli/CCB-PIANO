@@ -16,10 +16,15 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textDim,
-        tabBarStyle: { backgroundColor: colors.bgElevated, borderTopColor: colors.border },
+        // Paisagem: menu lateral (trilho) em vez de abas embaixo.
+        tabBarPosition: 'left',
+        tabBarVariant: 'material',
+        tabBarLabelPosition: 'below-icon',
+        tabBarStyle: { backgroundColor: colors.bgElevated, borderRightColor: colors.border, width: 84 },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Trilha', tabBarIcon: icon('🎹') }} />
-      <Tabs.Screen name="hinos" options={{ title: 'Hinos', tabBarIcon: icon('♪') }} />
+      <Tabs.Screen name="index" options={{ title: 'Hinos', tabBarIcon: icon('♪') }} />
+      {/* Trilha de aprendizagem: oculta por enquanto (o foco agora são os hinos). */}
+      <Tabs.Screen name="trilha" options={{ title: 'Trilha', href: null }} />
       <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icon('⚙') }} />
     </Tabs>
   );

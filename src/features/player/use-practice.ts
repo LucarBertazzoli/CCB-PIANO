@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { synth } from '@/audio/synth';
-import type { HandSelection, Song } from '@/content/types';
+import type { HandSelection, Song, Voice } from '@/content/types';
 import { PracticeSession, type PracticeMode, type SessionStatus } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
 import { buildTimeline } from '@/engine/timeline';
@@ -20,6 +20,8 @@ export interface PracticeOptions {
   anyKey?: boolean;
   /** Liga o metrônomo mesmo que esteja desligado nos ajustes. */
   forceMetronome?: boolean;
+  /** Vozes que o aluno toca (hinos a 4 vozes). */
+  voices?: Voice[];
 }
 
 export type Feedback = { id: number; text: string; kind: 'good' | 'bad' };
@@ -38,6 +40,7 @@ export function usePractice({
   sectionId,
   anyKey,
   forceMetronome,
+  voices,
 }: PracticeOptions) {
   const inputSource = useSettings((s) => s.inputSource);
   const micLatency = useSettings((s) => s.micLatency);
@@ -53,8 +56,9 @@ export function usePractice({
         tempoFactor,
         startBeat: section?.startBeat,
         endBeat: section?.endBeat,
+        voices,
       }),
-    [song, hands, tempoFactor, section?.startBeat, section?.endBeat],
+    [song, hands, tempoFactor, section?.startBeat, section?.endBeat, voices],
   );
 
   const session = useMemo(

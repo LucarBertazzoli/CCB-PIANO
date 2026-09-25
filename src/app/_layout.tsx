@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { synth } from '@/audio/synth';
+import { useLandscape } from '@/features/player/use-landscape';
 import { useSettings } from '@/store/settings';
 import { colors } from '@/theme';
 
@@ -22,6 +23,7 @@ const theme = {
 };
 
 export default function RootLayout() {
+  useLandscape();
   const instrument = useSettings((s) => s.instrument);
   const volume = useSettings((s) => s.volume);
   useEffect(() => {

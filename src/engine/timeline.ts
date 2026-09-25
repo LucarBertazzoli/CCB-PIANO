@@ -1,4 +1,4 @@
-import type { Finger, Hand, HandSelection, Song } from '@/content/types';
+import type { Finger, Hand, HandSelection, Song, Voice } from '@/content/types';
 
 /** Nota com tempos em segundos, pronta para o motor de prática. */
 export interface TimedNote {
@@ -6,6 +6,7 @@ export interface TimedNote {
   midi: number;
   hand: Hand;
   finger?: Finger;
+  voice?: Voice;
   /** Início em segundos (0 = início do trecho). */
   time: number;
   duration: number;
@@ -18,6 +19,7 @@ export interface TimedNote {
 
 export interface TimedRest {
   hand: Hand;
+  voice?: Voice;
   time: number;
   beats: number;
 }
@@ -41,6 +43,11 @@ export interface TimelineOptions {
   tempoFactor?: number;
   startBeat?: number;
   endBeat?: number;
+  /**
+   * Vozes que o aluno toca (hinos a 4 vozes). As demais tocam sozinhas como
+   * acompanhamento. Sem valor = todas as vozes das mãos escolhidas.
+   */
+  voices?: Voice[];
 }
 
 export function isHandActive(hand: Hand, selection: HandSelection): boolean {
@@ -60,11 +67,13 @@ export function buildTimeline(song: Song, opts: TimelineOptions): Timeline {
       midi: n.midi,
       hand: n.hand,
       finger: n.finger,
+      voice: n.voice,
       time: (n.start - startBeat) * secondsPerBeat,
       duration: Math.min(n.duration, endBeat - n.start) * secondsPerBeat,
       beat: n.start,
       beats: n.duration,
-      active: isHandActive(n.hand, opts.hands),
+      active:
+        isHandActive(n.hand, opts.hands) && (!opts.voices?.length || !n.voice || opts.voices.includes(n.voice)),
     }))
     .sort((a, b) => a.time - b.time || a.midi - b.midi);
 
@@ -83,7 +92,7 @@ export function buildTimeline(song: Song, opts: TimelineOptions): Timeline {
 
   const rests: TimedRest[] = (song.rests ?? [])
     .filter((r) => r.start >= startBeat && r.start < endBeat)
-    .map((r) => ({ hand: r.hand, time: (r.start - startBeat) * secondsPerBeat, beats: r.duration }));
+    .map((r) => ({ hand: r.hand, voice: r.voice, time: (r.start - startBeat) * secondsPerBeat, beats: r.duration }));
 
   const midis = notes.map((n) => n.midi);
   return {

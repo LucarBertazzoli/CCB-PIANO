@@ -1,7 +1,7 @@
 # CCB Piano
 
-App (Android, iOS e web) para aprender **teclado e órgão** com os **hinos da CCB**
-e o **MOR — Método de Estudos para Órgão Eletrônico**.
+App (Android, iOS e web) para aprender **teclado e órgão** com os **hinos da CCB**.
+Funciona na **horizontal** (paisagem), como o Simply Piano.
 
 A experiência de tocar é inspirada no Simply Piano: as notas caem sobre um
 teclado, o app **escuta** o que o aluno toca (teclado na tela, teclado MIDI ou
@@ -11,6 +11,15 @@ sequência de dias) segue a mesma ideia de apps como o Artie e o Simply Piano,
 sem instrutor de IA.
 
 ## O que já funciona
+
+- **Hinário**: os 480 hinos pelo número; os que têm partitura cadastrada abrem
+  para estudo (ver `docs/CONTEUDO.md`).
+- **Partitura no formato do hinário da organista**: duas pautas, 4 vozes com
+  hastes por voz, armadura, fórmula de compasso, ♩ = metrônomo, dedilhado,
+  acidentes corretos por compasso, cursor que acompanha e página que rola sozinha.
+- **Ou notas caindo** sobre o teclado — o aluno escolhe na hora.
+- **Praticar por voz** (soprano, contralto, tenor, baixo), por mão ou o hino
+  inteiro; as outras vozes tocam junto como acompanhamento.
 
 - **Notas caindo** sobre o teclado, com cor por mão (azul = direita, roxo =
   esquerda), nome da nota ou número do dedo dentro de cada nota, linhas de
@@ -24,10 +33,8 @@ sem instrutor de IA.
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
 - **Som** de piano e órgão sintetizado (sem arquivos de áudio), metrônomo.
-- **Trilha gamificada baseada no MOR (Volume 1)**: 23 níveis com lições curtas —
-  explicações ilustradas, percepção auditiva (ouvir e responder), quizzes,
-  leitura de notas na pauta tocando no teclado, leitura rítmica com
-  metrônomo e estudos com partitura. Lições liberadas em sequência, com estrelas.
+- **Trilha de aprendizagem (oculta por enquanto)**: 23 níveis baseados no MOR,
+  guardados em `src/content/courses/trilha.ts` e na rota `/trilha`.
 
 ## Rodando
 
@@ -55,7 +62,7 @@ npm test
 ```
 src/
   app/                 Telas (Expo Router)
-    (tabs)/            Trilha • Hinos • Ajustes
+    (tabs)/            Hinos • Ajustes (Trilha oculta)
     licao/[id].tsx     Executa uma lição passo a passo
     hino/[songId].tsx  Detalhes da música (mãos, trecho, modo)
     tocar/[songId].tsx Player livre
@@ -74,7 +81,8 @@ src/
     midi-input*.ts     Web MIDI (nativo: a integrar)
     mic-input*.ts      Microfone (nativo e web)
   audio/synth.ts       Sintetizador de piano/órgão
-  components/          Teclado, notas caindo, partitura, UI
+  components/          Teclado, notas caindo, partitura (HymnScore), UI
+  music/spelling.ts    Grafia das notas (armadura, ♯ ♭ ♮ por compasso)
   features/            Player e atividades (quiz, ouvir, encontrar a nota)
   store/               Ajustes e progresso (persistidos)
 ```

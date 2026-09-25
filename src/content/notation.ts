@@ -77,7 +77,7 @@ export function parseVoiceFull(
     lastDuration = duration;
 
     if (pitchPart === 'r') {
-      rests.push({ start: beat, duration, hand: opts.hand });
+      rests.push({ start: beat, duration, hand: opts.hand, ...(opts.voice ? { voice: opts.voice } : {}) });
     } else {
       const names = pitchPart.startsWith('[')
         ? pitchPart.slice(1, -1).split(/\s+/).filter(Boolean)
@@ -118,4 +118,21 @@ export function score(right: string, left = ''): { notes: NoteEvent[]; rests: Re
   const r = right ? parseVoiceFull(right, { hand: 'right', idPrefix: 'r' }) : { notes: [], rests: [] };
   const l = left ? parseVoiceFull(left, { hand: 'left', idPrefix: 'l' }) : { notes: [], rests: [] };
   return { notes: mergeVoices(r.notes, l.notes), rests: [...r.rests, ...l.rests] };
+}
+
+/**
+ * Hino a quatro vozes. Soprano e contralto na mão direita (clave de Sol),
+ * tenor e baixo na mão esquerda (clave de Fá), como no hinário.
+ */
+export function fourVoices(v: { soprano: string; alto: string; tenor: string; bass: string }): {
+  notes: NoteEvent[];
+  rests: RestEvent[];
+} {
+  const parts = [
+    parseVoiceFull(v.soprano, { hand: 'right', voice: 'soprano', idPrefix: 's' }),
+    parseVoiceFull(v.alto, { hand: 'right', voice: 'alto', idPrefix: 'a' }),
+    parseVoiceFull(v.tenor, { hand: 'left', voice: 'tenor', idPrefix: 't' }),
+    parseVoiceFull(v.bass, { hand: 'left', voice: 'bass', idPrefix: 'b' }),
+  ];
+  return { notes: mergeVoices(...parts.map((p) => p.notes)), rests: parts.flatMap((p) => p.rests) };
 }

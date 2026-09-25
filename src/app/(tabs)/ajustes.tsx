@@ -197,7 +197,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.md, paddingBottom: 80 },
+  content: { padding: space.md, paddingBottom: 80, width: '100%', maxWidth: 860, alignSelf: 'center' },
   title: { color: colors.text, fontSize: 26, fontWeight: '800' },
   rowBox: {
     flexDirection: 'row',

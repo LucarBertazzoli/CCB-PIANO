@@ -1,180 +1,162 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Chip, Stars } from '@/components/ui';
-import { allCourses, lessonsOf } from '@/content';
-import { useProgress } from '@/store/progress';
-import { useSettings } from '@/store/settings';
+import { Chip } from '@/components/ui';
+import { allHymns } from '@/content';
+import { hymnCatalog, type HymnEntry } from '@/content/songs/hymns';
 import { colors, radius, space } from '@/theme';
 
-/** Cores das unidades ao longo da trilha (alternadas, como “mundos”). */
-const UNIT_COLORS = ['#3FA9F5', '#8E6CFF', '#2FBF8F', '#F5A43F', '#F2607A', '#35B6C9'];
-/** Deslocamento horizontal dos nós, formando um caminho em zigue-zague. */
-const ZIGZAG = [0, 56, 84, 56, 0, -56, -84, -56];
+type Filter = 'all' | 'ready';
 
-/** Trilha de aprendizagem: unidades e lições em um caminho, como no Simply Piano. */
-export default function PathScreen() {
-  const courses = allCourses();
-  const [courseId, setCourseId] = useState(courses[0].id);
-  const course = courses.find((c) => c.id === courseId) ?? courses[0];
-  const lessonRecords = useProgress((s) => s.lessons);
-  const unlockAll = useSettings((s) => s.unlockAll);
+const RAIL = 84; // largura do menu lateral
+const SIDE = 300; // coluna da esquerda (busca e destaques)
 
-  const refs = lessonsOf(course);
-  const isUnlocked = (order: number) =>
-    unlockAll || order === 0 || !!lessonRecords[refs[order - 1]?.lesson.id]?.completed;
-  const nextLesson = refs.find((r) => !lessonRecords[r.lesson.id]?.completed);
-  const open = (id: string) => router.push({ pathname: '/licao/[id]', params: { id } });
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** Hinário: todos os hinos pelo número, como o índice do hinário da organista. */
+export default function HymnsScreen() {
+  const { width } = useWindowDimensions();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [notice, setNotice] = useState<number | null>(null);
+
+  const extras = allHymns().filter((h) => !h.hymnNumber);
+  const catalog = useMemo(() => hymnCatalog(), []);
+  const readyCount = catalog.filter((h) => h.songId).length;
+  const list = useMemo(() => {
+    const q = normalize(query.trim());
+    return catalog.filter((h) => {
+      if (filter === 'ready' && !h.songId) return false;
+      if (!q) return true;
+      return String(h.number).startsWith(q) || (h.title ? normalize(h.title).includes(q) : false);
+    });
+  }, [catalog, query, filter]);
+
+  // Em paisagem: busca à esquerda, grade de hinos à direita.
+  const wide = width - RAIL > 640;
+  const gridWidth = Math.max(240, (wide ? width - RAIL - SIDE : width - RAIL) - space.md * 2);
+  const columns = Math.max(4, Math.floor(gridWidth / 78));
+  const cellWidth = (gridWidth - 8 * (columns - 1)) / columns;
+
+  const open = (h: HymnEntry) => {
+    if (h.songId) router.push({ pathname: '/hino/[songId]', params: { songId: h.songId } });
+    else setNotice(h.number);
+  };
+
+  const side = (
+    <View style={[styles.side, wide && { width: SIDE }]}>
+      <Text style={styles.title}>Hinário</Text>
+      <Text style={styles.subtitle}>Escolha um hino para aprender no piano ou no órgão.</Text>
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Número ou nome do hino"
+        placeholderTextColor={colors.textDim}
+        style={styles.search}
+        inputMode="search"
+      />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Chip label="Todos (480)" selected={filter === 'all'} onPress={() => setFilter('all')} />
+        <Chip label={`Com partitura (${readyCount})`} selected={filter === 'ready'} onPress={() => setFilter('ready')} />
+      </View>
+      {notice !== null ? (
+        <Pressable onPress={() => setNotice(null)} style={styles.notice}>
+          <Text style={styles.noticeText}>
+            A partitura do hino {notice} ainda está sendo preparada. Toque para fechar.
+          </Text>
+        </Pressable>
+      ) : null}
+      {extras.length ? (
+        <View style={{ gap: 8, marginTop: space.sm }}>
+          <Text style={styles.sectionLabel}>PARA TESTAR</Text>
+          {extras.map((s) => (
+            <Pressable
+              key={s.id}
+              style={styles.extra}
+              onPress={() => router.push({ pathname: '/hino/[songId]', params: { songId: s.id } })}>
+              <Text style={styles.extraTitle}>{s.title}</Text>
+              {s.subtitle ? <Text style={styles.extraSub}>{s.subtitle}</Text> : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View>
-          <Text style={styles.hello}>A paz de Deus!</Text>
-          <Text style={styles.subtitle}>{course.description}</Text>
-        </View>
-
-        {courses.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {courses.map((c) => (
-              <Chip key={c.id} label={c.title} selected={c.id === course.id} onPress={() => setCourseId(c.id)} />
-            ))}
-          </ScrollView>
-        ) : null}
-
-        {nextLesson ? (
-          <Pressable style={styles.continueCard} onPress={() => open(nextLesson.lesson.id)}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.continueLabel}>{nextLesson.order === 0 ? 'COMEÇAR' : 'CONTINUAR'}</Text>
-              <Text style={styles.continueTitle}>{nextLesson.lesson.title}</Text>
-              <Text style={styles.continueUnit}>{nextLesson.unit.title}</Text>
-            </View>
-            <View style={styles.playBig}>
-              <Text style={styles.playBigIcon}>▶</Text>
-            </View>
+    <SafeAreaView style={[styles.safe, wide && { flexDirection: 'row' }]} edges={['top', 'right']}>
+      {side}
+      <FlatList
+        key={columns}
+        style={{ flex: 1 }}
+        data={list}
+        numColumns={columns}
+        keyExtractor={(h) => String(h.number)}
+        contentContainerStyle={{ padding: space.md, paddingBottom: 40, gap: 8 }}
+        columnWrapperStyle={{ gap: 8 }}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => open(item)}
+            accessibilityLabel={`Hino ${item.number}${item.title ? `, ${item.title}` : ''}`}
+            style={({ pressed }) => [styles.cell, { width: cellWidth }, item.songId ? styles.cellReady : null, pressed && { opacity: 0.7 }]}>
+            <Text style={[styles.cellNumber, !item.songId && styles.cellNumberDim]}>{item.number}</Text>
+            {item.title ? (
+              <Text numberOfLines={2} style={styles.cellTitle}>
+                {item.title}
+              </Text>
+            ) : null}
           </Pressable>
-        ) : (
-          <View style={styles.continueCard}>
-            <Text style={styles.continueTitle}>Você concluiu a trilha! 🎉</Text>
-          </View>
         )}
-
-        {course.units.map((unit, unitIndex) => {
-          const color = UNIT_COLORS[unitIndex % UNIT_COLORS.length];
-          return (
-            <View key={unit.id} style={styles.unit}>
-              <View style={[styles.unitHeader, { backgroundColor: color }]}>
-                <Text style={styles.unitNumber}>NÍVEL {unitIndex + 1}</Text>
-                <Text style={styles.unitTitle}>{unit.title}</Text>
-                {unit.description ? <Text style={styles.unitDesc}>{unit.description}</Text> : null}
-              </View>
-              {unit.lessons.map((lesson) => {
-                const ref = refs.find((r) => r.lesson.id === lesson.id)!;
-                const record = lessonRecords[lesson.id];
-                const unlocked = isUnlocked(ref.order);
-                const current = nextLesson?.lesson.id === lesson.id;
-                return (
-                  <Animated.View
-                    key={lesson.id}
-                    entering={FadeInUp.delay(Math.min(ref.order, 8) * 40)}
-                    style={[styles.nodeRow, { transform: [{ translateX: ZIGZAG[ref.order % ZIGZAG.length] }] }]}>
-                    {current ? <Text style={styles.here}>Você está aqui</Text> : null}
-                    <Pressable
-                      disabled={!unlocked}
-                      onPress={() => open(lesson.id)}
-                      accessibilityLabel={lesson.title}
-                      style={({ pressed }) => [
-                        styles.node,
-                        { backgroundColor: color, borderBottomColor: shade(color) },
-                        record?.completed && styles.nodeDone,
-                        !unlocked && styles.nodeLocked,
-                        current && styles.nodeCurrent,
-                        pressed && { transform: [{ scale: 0.94 }] },
-                      ]}>
-                      <Text style={styles.nodeIcon}>{!unlocked ? '🔒' : record?.completed ? '✓' : (lesson.icon ?? '▶')}</Text>
-                    </Pressable>
-                    <Text style={[styles.nodeTitle, !unlocked && { color: colors.textDim }]}>{lesson.title}</Text>
-                    {record?.completed ? <Stars count={record.stars} size={14} /> : null}
-                  </Animated.View>
-                );
-              })}
-            </View>
-          );
-        })}
-      </ScrollView>
+        ListEmptyComponent={<Text style={styles.empty}>Nenhum hino encontrado.</Text>}
+      />
     </SafeAreaView>
   );
 }
 
-/** Escurece uma cor hex (borda inferior “3D” dos botões). */
-function shade(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (v: number) => Math.max(0, Math.round(v * 0.72));
-  const r = f(n >> 16);
-  const g = f((n >> 8) & 0xff);
-  const b = f(n & 0xff);
-  return `rgb(${r},${g},${b})`;
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.md, paddingBottom: 80, gap: space.md },
-  hello: { color: colors.text, fontSize: 26, fontWeight: '800' },
-  subtitle: { color: colors.textDim, fontSize: 14, marginTop: 2 },
-  continueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryDark,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    gap: space.md,
-  },
-  continueLabel: { color: '#CFE9FF', fontWeight: '800', fontSize: 12, letterSpacing: 1 },
-  continueTitle: { color: '#fff', fontWeight: '800', fontSize: 22, marginTop: 4 },
-  continueUnit: { color: '#CFE9FF', marginTop: 2 },
-  playBig: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playBigIcon: { color: colors.primaryDark, fontSize: 24, fontWeight: '900', marginLeft: 3 },
-  unit: { alignItems: 'center', gap: space.md, marginTop: space.md },
-  unitHeader: {
-    alignSelf: 'stretch',
-    borderRadius: radius.md,
+  side: {
     padding: space.md,
+    gap: space.sm,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.border,
   },
-  unitNumber: { color: 'rgba(255,255,255,0.8)', fontWeight: '800', fontSize: 11, letterSpacing: 1 },
-  unitTitle: { color: '#fff', fontWeight: '800', fontSize: 18 },
-  unitDesc: { color: 'rgba(255,255,255,0.85)', marginTop: 2, fontSize: 12 },
-  nodeRow: { alignItems: 'center', gap: 4 },
-  here: {
-    color: colors.bg,
-    backgroundColor: colors.warning,
-    fontWeight: '800',
-    fontSize: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
+  title: { color: colors.text, fontSize: 28, fontWeight: '800' },
+  subtitle: { color: colors.textDim },
+  sectionLabel: { color: colors.textDim, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  search: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  node: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+  notice: { backgroundColor: colors.card, borderRadius: radius.md, padding: space.sm },
+  noticeText: { color: colors.warning },
+  extra: { backgroundColor: colors.primaryDark, borderRadius: radius.md, padding: space.md },
+  extraTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  extraSub: { color: '#CFE9FF', fontSize: 12, marginTop: 2 },
+  cell: {
+    minHeight: 62,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 6,
+    padding: 6,
   },
-  nodeCurrent: { borderWidth: 4, borderColor: '#fff', borderBottomWidth: 6 },
-  nodeDone: { backgroundColor: colors.success, borderBottomColor: '#2E9E46' },
-  nodeLocked: { backgroundColor: colors.card, borderBottomColor: colors.border },
-  nodeIcon: { color: '#fff', fontSize: 28, fontWeight: '800' },
-  nodeTitle: { color: colors.text, fontWeight: '700', textAlign: 'center', maxWidth: 170 },
+  cellReady: { backgroundColor: colors.primaryDark, borderWidth: 1, borderColor: colors.primary },
+  cellNumber: { color: colors.text, fontWeight: '900', fontSize: 20 },
+  cellNumberDim: { color: colors.textDim },
+  cellTitle: { color: colors.textDim, fontSize: 10, textAlign: 'center' },
+  empty: { color: colors.textDim, textAlign: 'center', marginTop: 40 },
 });

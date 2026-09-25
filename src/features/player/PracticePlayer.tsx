@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
+import { HymnScore } from '@/components/HymnScore';
 import { NoteHighway } from '@/components/NoteHighway';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { SheetMusic } from '@/components/SheetMusic';
 import { Button, Chip, Stars } from '@/components/ui';
-import type { HandSelection, Song } from '@/content/types';
+import type { HandSelection, Song, Voice } from '@/content/types';
 import type { PracticeMode } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
 import { inputHub } from '@/input/input-hub';
@@ -40,6 +41,8 @@ export interface PracticePlayerProps {
   rhythmOnly?: boolean;
   /** Dica curta mostrada na tela antes de começar. */
   hint?: string;
+  /** Vozes que o aluno toca (as outras soam como acompanhamento). */
+  voices?: Voice[];
   /** Se retornar uma mensagem, o botão “Continuar” fica bloqueado e a mensagem aparece. */
   continueBlockedReason?: (score: ScoreSummary) => string | null;
 }
@@ -57,6 +60,10 @@ export function PracticePlayer(props: PracticePlayerProps) {
   const settings = useSettings();
   const [localView, setLocalView] = useState<ViewMode | null>(props.view ?? null);
   const viewMode = localView ?? settings.viewMode;
+  const setView = (next: ViewMode) => {
+    if (localView) setLocalView(next);
+    else settings.set({ viewMode: next });
+  };
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -68,6 +75,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
     sectionId: props.sectionId,
     anyKey: props.rhythmOnly,
     forceMetronome: props.rhythmOnly,
+    voices: props.voices,
   });
 
   const usableWidth = width - insets.left - insets.right;
@@ -76,8 +84,15 @@ export function PracticePlayer(props: PracticePlayerProps) {
     return keyboardLayout(low, high, usableWidth);
   }, [p.timeline.lowest, p.timeline.highest, usableWidth]);
 
-  const topBar = 52;
-  const keyboardHeight = Math.max(90, Math.min(190, height * 0.28));
+  const topBar = 50;
+  const [panelOpen, setPanelOpen] = useState(false);
+  // O teclado pode ser escondido (microfone/MIDI); nas notas caindo ele é sempre mostrado.
+  const keyboardVisible = viewMode === 'falling' || settings.showKeyboard;
+  const keyboardHeight = !keyboardVisible
+    ? 0
+    : viewMode === 'page'
+      ? Math.max(80, Math.min(150, height * 0.22))
+      : Math.max(90, Math.min(190, height * 0.28));
   const stageHeight = Math.max(120, height - insets.top - insets.bottom - topBar - keyboardHeight);
 
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
@@ -115,7 +130,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
-      {/* Barra superior */}
+      {/* Barra superior (compacta para paisagem) */}
       <View style={[styles.topBar, { height: topBar }]}>
         <Pressable onPress={onExit} hitSlop={12} style={styles.iconBtn} accessibilityLabel="Sair">
           <Text style={styles.iconText}>✕</Text>
@@ -129,40 +144,42 @@ export function PracticePlayer(props: PracticePlayerProps) {
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.controls} contentContainerStyle={styles.row}>
         {!locked && (
-          <View style={styles.row}>
-            {(['right', 'left', 'both'] as HandSelection[]).map((h) => (
-              <Chip key={h} compact label={HAND_LABEL[h]} selected={hands === h} onPress={() => setHands(h)} />
-            ))}
-          </View>
-        )}
-        {!locked && (
-          <View style={styles.row}>
+          <View style={styles.segment}>
             {(['wait', 'rhythm', 'demo'] as PracticeMode[]).map((m) => (
-              <Chip key={m} compact label={MODE_LABEL[m]} selected={mode === m} onPress={() => setMode(m)} />
+              <Pressable
+                key={m}
+                onPress={() => setMode(m)}
+                style={[styles.segmentItem, mode === m && styles.segmentItemOn]}
+                accessibilityState={{ selected: mode === m }}>
+                <Text style={[styles.segmentText, mode === m && styles.segmentTextOn]}>{MODE_LABEL[m]}</Text>
+              </Pressable>
             ))}
           </View>
         )}
-        <Chip
-          compact
-          label={`${Math.round(tempoFactor * 100)}%`}
-          onPress={() => setTempoFactor(TEMPOS[(TEMPOS.indexOf(tempoFactor) + 1) % TEMPOS.length])}
-        />
-        <Chip
-          compact
-          label={viewMode === 'falling' ? '♪ Partitura' : '▮ Notas'}
-          onPress={() => {
-            const next = viewMode === 'falling' ? 'sheet' : 'falling';
-            if (localView) setLocalView(next);
-            else settings.set({ viewMode: next });
-          }}
-        />
-        </ScrollView>
+        {viewMode === 'sheet' ? null : (
+          <View style={styles.segment}>
+            <Pressable
+              onPress={() => setView('falling')}
+              style={[styles.segmentItem, viewMode === 'falling' && styles.segmentItemOn]}
+              accessibilityLabel="Notas caindo">
+              <Text style={[styles.segmentText, viewMode === 'falling' && styles.segmentTextOn]}>▮ Notas</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setView('page')}
+              style={[styles.segmentItem, viewMode === 'page' && styles.segmentItemOn]}
+              accessibilityLabel="Partitura">
+              <Text style={[styles.segmentText, viewMode === 'page' && styles.segmentTextOn]}>♪ Partitura</Text>
+            </Pressable>
+          </View>
+        )}
+        <Pressable onPress={() => setPanelOpen((o) => !o)} hitSlop={8} style={[styles.iconBtn, panelOpen && styles.iconBtnOn]} accessibilityLabel="Opções">
+          <Text style={styles.iconText}>⚙</Text>
+        </Pressable>
         <Pressable
           onPress={p.status === 'playing' || p.status === 'waiting' ? p.pause : p.start}
           hitSlop={12}
-          style={styles.iconBtn}
+          style={[styles.iconBtn, styles.playBtn]}
           accessibilityLabel="Pausar ou continuar">
           <Text style={styles.iconText}>{p.status === 'playing' || p.status === 'waiting' ? '❚❚' : '▶'}</Text>
         </Pressable>
@@ -170,7 +187,17 @@ export function PracticePlayer(props: PracticePlayerProps) {
 
       {/* Área das notas */}
       <View style={{ height: stageHeight }}>
-        {viewMode === 'falling' ? (
+        {viewMode === 'page' ? (
+          <HymnScore
+            width={usableWidth}
+            height={stageHeight}
+            song={song}
+            timeline={p.timeline}
+            time={p.time}
+            resultOf={resultOf}
+            version={p.version}
+          />
+        ) : viewMode === 'falling' ? (
           <NoteHighway
             layout={layout}
             height={stageHeight}
@@ -219,6 +246,41 @@ export function PracticePlayer(props: PracticePlayerProps) {
           </View>
         ) : null}
 
+        {panelOpen && (
+          <View style={styles.panel}>
+            {!locked && (
+              <View style={styles.panelRow}>
+                <Text style={styles.panelLabel}>Mãos</Text>
+                {(['right', 'left', 'both'] as HandSelection[]).map((h) => (
+                  <Chip key={h} compact label={HAND_LABEL[h]} selected={hands === h} onPress={() => setHands(h)} />
+                ))}
+              </View>
+            )}
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Andamento</Text>
+              {TEMPOS.map((t) => (
+                <Chip key={t} compact label={`${Math.round(t * 100)}%`} selected={tempoFactor === t} onPress={() => setTempoFactor(t)} />
+              ))}
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Som</Text>
+              <Chip compact label="Piano" selected={settings.instrument === 'piano'} onPress={() => settings.set({ instrument: 'piano' })} />
+              <Chip compact label="Órgão" selected={settings.instrument === 'organ'} onPress={() => settings.set({ instrument: 'organ' })} />
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Metrônomo</Text>
+              <Switch value={settings.metronome} onValueChange={(v) => settings.set({ metronome: v })} />
+              <Text style={styles.panelLabel}>Acompanhamento</Text>
+              <Switch value={settings.playAccompaniment} onValueChange={(v) => settings.set({ playAccompaniment: v })} />
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Teclado na tela</Text>
+              <Switch value={settings.showKeyboard} onValueChange={(v) => settings.set({ showKeyboard: v })} />
+              <Text style={styles.panelHint}>Esconda para ver mais partitura (usando microfone ou MIDI).</Text>
+            </View>
+          </View>
+        )}
+
         {(p.status === 'ready' || p.status === 'paused') && (
           <View style={styles.overlay}>
             <Text style={styles.overlayTitle}>
@@ -266,6 +328,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
         )}
       </View>
 
+      {keyboardVisible ? (
       <PianoKeyboard
         layout={layout}
         height={keyboardHeight}
@@ -275,6 +338,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
         onNoteOn={noteOn}
         onNoteOff={noteOff}
       />
+      ) : null}
     </View>
   );
 }
@@ -297,7 +361,35 @@ const styles = StyleSheet.create({
   },
   iconText: { color: colors.text, fontSize: 15, fontWeight: '700' },
   titleBox: { flex: 1, minWidth: 110, gap: 4 },
-  controls: { flexGrow: 0, flexShrink: 1 },
+  iconBtnOn: { backgroundColor: colors.primary },
+  playBtn: { backgroundColor: colors.primaryDark },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    padding: 3,
+    gap: 2,
+  },
+  segmentItem: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
+  segmentItemOn: { backgroundColor: colors.primary },
+  segmentText: { color: colors.textDim, fontWeight: '700', fontSize: 13 },
+  segmentTextOn: { color: '#fff' },
+  panel: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    zIndex: 20,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 10,
+    maxWidth: 560,
+  },
+  panelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  panelLabel: { color: colors.text, fontWeight: '700', fontSize: 13, minWidth: 70 },
+  panelHint: { color: colors.textDim, fontSize: 11, flexShrink: 1 },
   title: { color: colors.text, fontWeight: '700', fontSize: 14 },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: colors.card, overflow: 'hidden' },
   progressFill: { height: 6, backgroundColor: colors.success },
