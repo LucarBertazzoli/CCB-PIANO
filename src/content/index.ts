@@ -1,4 +1,5 @@
 import { courses } from './courses';
+import { estudos, rhythmSongs } from './songs/estudos';
 import { exercises } from './songs/exercises';
 import { hymns } from './songs/hymns';
 import { pieces } from './songs/pieces';
@@ -9,7 +10,7 @@ import type { Course, Lesson, Song, Unit } from './types';
  * ser trocado por uma API sem mudar as telas.
  */
 const songs = new Map<string, Song>();
-for (const s of [...exercises, ...pieces, ...hymns]) {
+for (const s of [...exercises, ...estudos, ...rhythmSongs, ...pieces, ...hymns]) {
   if (songs.has(s.id)) throw new Error(`Música duplicada: ${s.id}`);
   songs.set(s.id, s);
 }
@@ -51,6 +52,13 @@ for (const course of courses) {
 
 export function getLesson(id: string): LessonRef | undefined {
   return lessons.get(id);
+}
+
+/** Próxima lição da mesma trilha (para o botão “Próxima lição”). */
+export function nextLessonAfter(id: string): LessonRef | undefined {
+  const current = lessons.get(id);
+  if (!current) return undefined;
+  return lessonsOf(current.course).find((l) => l.order === current.order + 1);
 }
 
 export function lessonsOf(course: Course): LessonRef[] {

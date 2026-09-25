@@ -23,7 +23,7 @@ export default function HymnsScreen() {
   const records = useProgress((s) => s.songs);
 
   const list = useMemo(() => {
-    const base = filter === 'hymns' ? allHymns() : allSongs().filter((s) => s.kind !== 'hymn');
+    const base = filter === 'hymns' ? allHymns() : allSongs().filter((s) => s.kind !== 'hymn' && !s.tags?.includes('ritmo'));
     const q = normalize(query.trim());
     if (!q) return base;
     return base.filter(

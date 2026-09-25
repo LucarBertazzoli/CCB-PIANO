@@ -16,6 +16,10 @@ export interface PracticeOptions {
   mode: PracticeMode;
   tempoFactor: number;
   sectionId?: string;
+  /** Exercício de ritmo: qualquer tecla vale. */
+  anyKey?: boolean;
+  /** Liga o metrônomo mesmo que esteja desligado nos ajustes. */
+  forceMetronome?: boolean;
 }
 
 export type Feedback = { id: number; text: string; kind: 'good' | 'bad' };
@@ -26,11 +30,20 @@ const FLASH_MS = 220;
  * Liga o motor de prática ao relógio de animação, ao som e às entradas
  * (toque, MIDI, microfone). Toda a regra de jogo fica em `PracticeSession`.
  */
-export function usePractice({ song, hands, mode, tempoFactor, sectionId }: PracticeOptions) {
+export function usePractice({
+  song,
+  hands,
+  mode,
+  tempoFactor,
+  sectionId,
+  anyKey,
+  forceMetronome,
+}: PracticeOptions) {
   const inputSource = useSettings((s) => s.inputSource);
   const micLatency = useSettings((s) => s.micLatency);
   const playAccompaniment = useSettings((s) => s.playAccompaniment);
-  const metronome = useSettings((s) => s.metronome);
+  const metronomeSetting = useSettings((s) => s.metronome);
+  const metronome = metronomeSetting || !!forceMetronome;
 
   const section = song.sections?.find((s) => s.id === sectionId);
   const timeline = useMemo(
@@ -52,8 +65,9 @@ export function usePractice({ song, hands, mode, tempoFactor, sectionId }: Pract
         leadIn: Math.max(1.5, timeline.secondsPerBeat * song.timeSignature[0]),
         chordPolicy: inputSource === 'mic' ? 'any' : 'all',
         inputLatency: inputSource === 'mic' ? micLatency : 0,
+        anyKey,
       }),
-    [timeline, mode, inputSource, micLatency, song.timeSignature],
+    [timeline, mode, inputSource, micLatency, song.timeSignature, anyKey],
   );
 
   const time = useSharedValue(session.time);

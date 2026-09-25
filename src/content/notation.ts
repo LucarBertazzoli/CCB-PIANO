@@ -1,6 +1,6 @@
 import { parseNoteName } from '@/music/theory';
 
-import type { Finger, Hand, NoteEvent, Voice } from './types';
+import type { Finger, Hand, NoteEvent, RestEvent, Voice } from './types';
 
 /**
  * Notação textual compacta para cadastrar músicas rapidamente.
@@ -55,7 +55,16 @@ function tokenize(text: string): string[] {
 }
 
 export function parseVoice(text: string, opts: ParseVoiceOptions): NoteEvent[] {
+  return parseVoiceFull(text, opts).notes;
+}
+
+/** Como `parseVoice`, mas também devolve as pausas (para a partitura). */
+export function parseVoiceFull(
+  text: string,
+  opts: ParseVoiceOptions,
+): { notes: NoteEvent[]; rests: RestEvent[] } {
   const events: NoteEvent[] = [];
+  const rests: RestEvent[] = [];
   let beat = opts.startBeat ?? 0;
   let lastDuration = 1;
   const prefix = opts.idPrefix ?? opts.hand[0];
@@ -67,7 +76,9 @@ export function parseVoice(text: string, opts: ParseVoiceOptions): NoteEvent[] {
     const duration = durPart ? parseDuration(durPart) : lastDuration;
     lastDuration = duration;
 
-    if (pitchPart !== 'r') {
+    if (pitchPart === 'r') {
+      rests.push({ start: beat, duration, hand: opts.hand });
+    } else {
       const names = pitchPart.startsWith('[')
         ? pitchPart.slice(1, -1).split(/\s+/).filter(Boolean)
         : [pitchPart];
@@ -86,7 +97,7 @@ export function parseVoice(text: string, opts: ParseVoiceOptions): NoteEvent[] {
     }
     beat += duration;
   }
-  return events;
+  return { notes: events, rests };
 }
 
 /** Junta várias vozes em uma lista ordenada por tempo e altura. */
@@ -100,4 +111,11 @@ export function twoHands(right: string, left: string): NoteEvent[] {
     right ? parseVoice(right, { hand: 'right', idPrefix: 'r' }) : [],
     left ? parseVoice(left, { hand: 'left', idPrefix: 'l' }) : [],
   );
+}
+
+/** Monta notas e pausas de uma música a partir das duas mãos. */
+export function score(right: string, left = ''): { notes: NoteEvent[]; rests: RestEvent[] } {
+  const r = right ? parseVoiceFull(right, { hand: 'right', idPrefix: 'r' }) : { notes: [], rests: [] };
+  const l = left ? parseVoiceFull(left, { hand: 'left', idPrefix: 'l' }) : { notes: [], rests: [] };
+  return { notes: mergeVoices(r.notes, l.notes), rests: [...r.rests, ...l.rests] };
 }

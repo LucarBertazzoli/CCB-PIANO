@@ -39,29 +39,47 @@ com introduções e meia-hora.
 
 ## 3. O que já está no código
 
-- Volumes 1–4 modelados em `src/content/courses/mor.ts`, com **todas as
-  unidades** dos volumes 1 e 2 e os links oficiais de cada tipo de material.
-- Unidades 1–11 e 22 do Volume 1 já têm passos interativos (quizzes, encontrar
-  notas no teclado e na pauta, prática com notas caindo). As demais mostram o
-  material oficial e o aviso “estudos interativos em preparação”.
-- Volumes 3 e 4 aparecem como “em desenvolvimento”.
+A trilha (`src/content/courses/trilha.ts`) converte o **Volume 1** em 23 níveis
+jogáveis, sem vídeos nem PDFs, focados no teclado:
+
+| Nível | Unidade do MOR | Atividades no app |
+| --- | --- | --- |
+| 1 | 1 Apresentação do instrumento | teclas brancas/pretas, grave × agudo, quiz |
+| 2 | 2 O som e suas propriedades | ouvir: altura, duração, intensidade, timbre; quiz |
+| 3 | 3 Postura e posição | explicações + “certo ou errado” |
+| 4 | 4 Notas musicais | subiu/desceu, sequência das notas, achar o Dó, primeira melodia |
+| 5 | 5 Dedilhado e articulação | números dos dedos, toque ligado, cinco dedos |
+| 6 | 6 Pauta | linha × espaço, numeração, linhas suplementares |
+| 7 | 7 Claves | ler e tocar na clave de Sol, de Fá e o Dó3 nas duas |
+| 8 | 8 Figuras | semibreve/mínima/semínima, proporções, ouvir durações |
+| 9 | 9 Ritmo e metrônomo | pulsação e leitura rítmica tocando no tempo |
+| 10 | 10 Registração | timbres, registros, efeitos |
+| 11 | 11 Estudos 1–10 | estudos de leitura: 5 notas a partir do Dó3, mãos intercaladas |
+| 12 | 12 Compassos e pausas | ouvir binário/ternário/quaternário, fórmula, pausas, ritmo |
+| 13 | 13 Estudos 11–15 | mão esquerda no Dó2, movimento paralelo e contrário |
+| 14 | 14 Ligadura de valor | ouvir ligado × repetido, estudo |
+| 15 | 15 Ponto de aumento | mínima pontuada, 3/4 |
+| 16 | 16 Colcheia | proporções, ritmo, exercício de articulação |
+| 17 | 17 Recursos de dedilhado | A, C, M, S, P, Dt; passagem do polegar na escala |
+| 18 | 18–19 Respiração e repetição | quiz |
+| 19 | 21 Tom, semitom e alterações | ouvir tom × semitom, sustenidos e bemóis |
+| 20 | 22 Escalas e acordes | escala de Dó, acordes Dó/Fá/Sol, peça |
+| 21 | 23 Sol maior | armadura, posição e escala |
+| 22 | 24 Fá maior | armadura, posição e escala |
+| 23 | 26 Hinos | primeiro hino por partes |
+
+Os **Estudos** e exercícios da trilha são composições próprias do app que seguem a
+mesma progressão do método. Os textos são próprios, escritos a partir dos
+objetivos de cada unidade (o material oficial é de uso restrito e protegido).
 
 ## 4. Próximas etapas
 
-1. **Autorização e fonte de conteúdo** — alinhar com os responsáveis o uso das
-   partituras (Estudos, Exercícios, Hinos) dentro do app.
-2. **Importador MusicXML/MIDI → `Song`** — para transcrever os estudos rápido
-   (MuseScore exporta MusicXML), preservando dedilhado e vozes.
-3. **Transcrever Volume 1** unidade a unidade (Estudos 1–40, Exercícios 2–22,
-   Hinos 158/131/468) e ligar em `morUnit(...)`.
-4. **Pedaleira** — tipo `pedal`, pista própria, desenho da pedaleira de 13/32
-   notas, exercícios de pedaleira do Vol. 2.
-5. **Quatro vozes** — praticar voz a voz (soprano/contralto/tenor/baixo), como
-   é feito nos ensaios.
-6. **Vídeo embutido** e marcação do trecho da videoaula de cada unidade.
-7. **Modo instrutora** — acompanhar alunas, liberar unidades, relatórios (usando
-   as atividades avaliativas).
-8. **MIDI nativo** (USB/Bluetooth no Android/iOS) e detecção **polifônica** pelo
-   microfone (acordes).
-9. **Hinário completo** — catálogo com busca por número, tonalidade e
-   dificuldade.
+1. **Estudos e hinos oficiais** — com autorização, transcrever os Estudos 1–40,
+   Exercícios e os Hinos 158, 131 e 468 (formato em `docs/CONTEUDO.md`) e
+   trocar os estudos próprios pelos oficiais nos níveis correspondentes.
+2. **Importador MusicXML/MIDI → `Song`** para acelerar a transcrição.
+3. **Pedaleira** (Unidade 25) — pista própria e desenho da pedaleira.
+4. **Volume 2** — tonalidades, contratempo, síncopa, compasso composto,
+   quiálteras e estudo dos hinos por tonalidade, seguindo o mesmo modelo.
+5. **Quatro vozes** — praticar soprano, contralto, tenor e baixo separadamente.
+6. **Ditado rítmico e melódico** — o app toca e o aluno reproduz no teclado.

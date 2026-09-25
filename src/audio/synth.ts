@@ -6,6 +6,7 @@ import { midiToFrequency } from '@/music/theory';
 interface Voice {
   oscillators: OscillatorNode[];
   gain: GainNode;
+  instrument: Instrument;
 }
 
 /** Harmônicos (múltiplo da fundamental, volume) de cada timbre. */
@@ -66,7 +67,7 @@ class Synth {
     if (this.master) this.master.gain.value = v * 0.35;
   }
 
-  noteOn(midi: number, velocity = 0.8): void {
+  noteOn(midi: number, velocity = 0.8, instrument: Instrument = this.instrument): void {
     const ctx = this.ensure();
     if (!ctx || !this.master) return;
     const now = ctx.currentTime;
@@ -75,7 +76,7 @@ class Synth {
     const peak = 0.25 + velocity * 0.55;
     gain.gain.setValueAtTime(0.0001, now);
 
-    if (this.instrument === 'piano') {
+    if (instrument === 'piano') {
       gain.gain.linearRampToValueAtTime(peak, now + 0.005);
       // Notas graves soam por mais tempo.
       const decay = 1.2 + Math.max(0, (84 - midi) / 24) * 1.8;
@@ -85,7 +86,7 @@ class Synth {
     }
     gain.connect(this.master);
 
-    const oscillators = PARTIALS[this.instrument].map(([mult, level, type]) => {
+    const oscillators = PARTIALS[instrument].map(([mult, level, type]) => {
       const osc = ctx.createOscillator();
       osc.type = type;
       osc.frequency.value = freq * mult;
@@ -98,7 +99,7 @@ class Synth {
     });
 
     const list = this.voices.get(midi) ?? [];
-    list.push({ oscillators, gain });
+    list.push({ oscillators, gain, instrument });
     this.voices.set(midi, list);
   }
 
@@ -108,7 +109,7 @@ class Synth {
     if (!ctx || !list?.length) return;
     const voice = list.shift()!;
     const now = ctx.currentTime;
-    const release = this.instrument === 'piano' ? 0.25 : 0.08;
+    const release = voice.instrument === 'piano' ? 0.25 : 0.08;
     voice.gain.gain.cancelScheduledValues(now);
     voice.gain.gain.setValueAtTime(Math.max(voice.gain.gain.value, 0.0001), now);
     voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + release);
@@ -116,8 +117,8 @@ class Synth {
   }
 
   /** Toca uma nota por um tempo fixo (acompanhamento e demonstração). */
-  play(midi: number, seconds: number, velocity = 0.6): void {
-    this.noteOn(midi, velocity);
+  play(midi: number, seconds: number, velocity = 0.6, instrument?: Instrument): void {
+    this.noteOn(midi, velocity, instrument);
     setTimeout(() => this.noteOff(midi), Math.max(80, seconds * 1000 * 0.95));
   }
 

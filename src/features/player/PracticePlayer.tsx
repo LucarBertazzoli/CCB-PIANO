@@ -13,7 +13,7 @@ import type { PracticeMode } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
 import { inputHub } from '@/input/input-hub';
 import { noteName } from '@/music/theory';
-import { useSettings } from '@/store/settings';
+import { useSettings, type ViewMode } from '@/store/settings';
 import { colors, radius } from '@/theme';
 
 import { usePractice } from './use-practice';
@@ -32,6 +32,14 @@ export interface PracticePlayerProps {
   /** Texto do botão principal na tela de resultado (ex.: “Continuar”). */
   continueLabel?: string;
   onContinue?: (score: ScoreSummary) => void;
+  /** Força a visualização inicial (partitura ou notas caindo). */
+  view?: ViewMode;
+  /** Pautas a mostrar na partitura. */
+  staves?: 'grand' | 'treble' | 'bass';
+  /** Exercício de ritmo: qualquer tecla vale e o metrônomo fica ligado. */
+  rhythmOnly?: boolean;
+  /** Dica curta mostrada na tela antes de começar. */
+  hint?: string;
   /** Se retornar uma mensagem, o botão “Continuar” fica bloqueado e a mensagem aparece. */
   continueBlockedReason?: (score: ScoreSummary) => string | null;
 }
@@ -47,10 +55,20 @@ export function PracticePlayer(props: PracticePlayerProps) {
   const [tempoFactor, setTempoFactor] = useState(props.initialTempo ?? 1);
 
   const settings = useSettings();
+  const [localView, setLocalView] = useState<ViewMode | null>(props.view ?? null);
+  const viewMode = localView ?? settings.viewMode;
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const p = usePractice({ song, hands, mode, tempoFactor, sectionId: props.sectionId });
+  const p = usePractice({
+    song,
+    hands,
+    mode,
+    tempoFactor,
+    sectionId: props.sectionId,
+    anyKey: props.rhythmOnly,
+    forceMetronome: props.rhythmOnly,
+  });
 
   const usableWidth = width - insets.left - insets.right;
   const layout = useMemo(() => {
@@ -133,8 +151,12 @@ export function PracticePlayer(props: PracticePlayerProps) {
         />
         <Chip
           compact
-          label={settings.viewMode === 'falling' ? '♪ Partitura' : '▮ Notas'}
-          onPress={() => settings.set({ viewMode: settings.viewMode === 'falling' ? 'sheet' : 'falling' })}
+          label={viewMode === 'falling' ? '♪ Partitura' : '▮ Notas'}
+          onPress={() => {
+            const next = viewMode === 'falling' ? 'sheet' : 'falling';
+            if (localView) setLocalView(next);
+            else settings.set({ viewMode: next });
+          }}
         />
         </ScrollView>
         <Pressable
@@ -148,7 +170,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
 
       {/* Área das notas */}
       <View style={{ height: stageHeight }}>
-        {settings.viewMode === 'falling' ? (
+        {viewMode === 'falling' ? (
           <NoteHighway
             layout={layout}
             height={stageHeight}
@@ -167,6 +189,8 @@ export function PracticePlayer(props: PracticePlayerProps) {
             height={stageHeight}
             timeline={p.timeline}
             keySignature={song.keySignature}
+            timeSignature={song.showTimeSignature === false ? null : song.timeSignature}
+            staves={props.staves}
             time={p.time}
             resultOf={resultOf}
             version={p.version}
@@ -203,11 +227,12 @@ export function PracticePlayer(props: PracticePlayerProps) {
             <Text style={styles.overlayText}>
               {p.status === 'paused'
                 ? 'Respire, e continue quando estiver pronto.'
-                : mode === 'wait'
-                  ? 'As notas esperam você tocar. Sem pressa!'
-                  : mode === 'rhythm'
-                    ? 'Toque cada nota quando ela chegar ao teclado.'
-                    : 'Veja e ouça como a música é tocada.'}
+                : (props.hint ??
+                  (mode === 'wait'
+                    ? 'As notas esperam você tocar. Sem pressa!'
+                    : mode === 'rhythm'
+                      ? 'Toque cada nota quando ela chegar ao teclado.'
+                      : 'Veja e ouça como a música é tocada.'))}
             </Text>
             <View style={styles.row}>
               <Button title={p.status === 'ready' ? 'Começar' : 'Continuar'} onPress={p.start} />

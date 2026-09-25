@@ -114,3 +114,13 @@ describe('timeline', () => {
     expect(tl.duration).toBe(6);
   });
 });
+
+describe('exercícios de ritmo', () => {
+  it('aceita qualquer tecla quando anyKey está ligado', () => {
+    const s = new PracticeSession({ timeline: buildTimeline(song, { hands: 'right' }), mode: 'rhythm', leadIn: 1, anyKey: true });
+    s.start();
+    run(s, 1.02);
+    s.noteOn(30); // tecla qualquer
+    expect(s.score().hits).toBe(1);
+  });
+});

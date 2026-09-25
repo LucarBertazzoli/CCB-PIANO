@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { synth } from '@/audio/synth';
 import { Button, Card, Chip, SectionTitle } from '@/components/ui';
 import { inputHub } from '@/input/input-hub';
 import type { InputSourceKind } from '@/input/types';
@@ -96,12 +95,6 @@ export default function SettingsScreen() {
   const resetProgress = useProgress((s) => s.reset);
   const volume = useSettings((s) => s.volume);
   const set = useSettings((s) => s.set);
-  const instrument = useSettings((s) => s.instrument);
-
-  useEffect(() => {
-    synth.instrument = instrument;
-    synth.setVolume(volume);
-  }, [instrument, volume]);
 
   const sources: { value: InputSourceKind; label: string }[] = [
     { value: 'touch', label: 'Tela' },
@@ -196,7 +189,7 @@ export default function SettingsScreen() {
         <Row label="Liberar todas as lições" hint="Útil para instrutores e para revisar conteúdo.">
           <Toggle k="unlockAll" />
         </Row>
-        <Button title="Apagar meu progresso" variant="secondary" onPress={resetProgress} style={{ marginTop: space.md }} />
+        <Button title="Recomeçar a trilha do zero" variant="secondary" onPress={resetProgress} style={{ marginTop: space.md }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -20,6 +20,13 @@ export interface NoteEvent {
   voice?: Voice;
 }
 
+/** Pausa (silêncio) — usada só para desenhar a partitura. */
+export interface RestEvent {
+  start: number;
+  duration: number;
+  hand: Hand;
+}
+
 /** Trecho nomeado da música (estrofe, coro, frase) para praticar em partes. */
 export interface Section {
   id: string;
@@ -46,6 +53,9 @@ export interface Song {
   difficulty: 1 | 2 | 3 | 4 | 5;
   instruments: Instrument[];
   notes: NoteEvent[];
+  rests?: RestEvent[];
+  /** `false` esconde a fórmula de compasso (como nos primeiros Estudos do MOR). */
+  showTimeSignature?: boolean;
   sections?: Section[];
   tags?: string[];
   /** Origem/licença do arranjo. */
@@ -60,6 +70,7 @@ export type LessonStep =
       body: string;
       /** Teclas para destacar no teclado ilustrativo. */
       highlight?: number[];
+      illustration?: Illustration;
     }
   | {
       type: 'watch';
@@ -67,6 +78,7 @@ export type LessonStep =
       songId: string;
       hands: HandSelection;
       sectionId?: string;
+      view?: 'falling' | 'sheet';
     }
   | {
       type: 'practice';
@@ -76,6 +88,8 @@ export type LessonStep =
       sectionId?: string;
       /** Multiplicador de andamento (1 = original). */
       tempoFactor?: number;
+      /** `sheet` para treinar leitura na partitura. */
+      view?: 'falling' | 'sheet';
     }
   | {
       type: 'play';
@@ -84,9 +98,34 @@ export type LessonStep =
       hands: HandSelection;
       sectionId?: string;
       tempoFactor?: number;
+      view?: 'falling' | 'sheet';
       /** Estrelas mínimas para concluir o passo. */
       minStars?: 1 | 2 | 3;
     };
+
+/** Ilustração opcional de uma pergunta ou explicação. */
+export interface Illustration {
+  /** Notas desenhadas numa pauta (clave escolhida pela altura, ou forçada). */
+  staff?: number[];
+  clef?: 'treble' | 'bass';
+  /** Escreve as teclas pretas como bemóis (ex.: Si♭). */
+  flats?: boolean;
+  /** Teclas destacadas num teclado. */
+  keys?: number[];
+  /** Figuras musicais desenhadas lado a lado. */
+  figures?: FigureName[];
+}
+
+export type FigureName =
+  | 'semibreve'
+  | 'minima'
+  | 'seminima'
+  | 'colcheia'
+  | 'pausa-semibreve'
+  | 'pausa-minima'
+  | 'pausa-seminima'
+  | 'pausa-colcheia'
+  | 'minima-pontuada';
 
 export interface QuizQuestion {
   prompt: string;
@@ -94,28 +133,52 @@ export interface QuizQuestion {
   /** Índice da opção correta. */
   answer: number;
   explanation?: string;
+  illustration?: Illustration;
 }
 
-/** Passos de conteúdo/teoria (vídeos e materiais oficiais, quizzes, teclado interativo). */
+/** Um som tocado numa atividade de percepção auditiva. */
+export interface ListenSound {
+  /** Nota ou acorde (MIDI). */
+  midi: number | number[];
+  /** Duração em batidas (andamento da rodada). */
+  beats: number;
+  /** 0..1 (fraco/forte). */
+  velocity?: number;
+  instrument?: Instrument;
+  /** Silêncio em vez de som. */
+  rest?: boolean;
+}
+
+export interface ListenRound {
+  question: string;
+  sounds: ListenSound[];
+  options: string[];
+  answer: number;
+  explanation?: string;
+  /** Batidas por minuto (padrão 90). */
+  tempo?: number;
+  illustration?: Illustration;
+}
+
+/** Passos de teoria e percepção (quizzes, ouvir, ritmo, leitura no teclado). */
 export type TheoryStep =
-  | {
-      type: 'video';
-      title: string;
-      /** Vídeo do YouTube (id) ou playlist/URL. */
-      youtubeId?: string;
-      url?: string;
-      description?: string;
-    }
-  | {
-      type: 'material';
-      title: string;
-      url: string;
-      description?: string;
-    }
   | {
       type: 'quiz';
       title: string;
       questions: QuizQuestion[];
+    }
+  | {
+      /** Percepção auditiva: o app toca, o aluno responde. */
+      type: 'listen';
+      title: string;
+      rounds: ListenRound[];
+    }
+  | {
+      /** Leitura rítmica: figuras na pauta, qualquer tecla, com metrônomo. */
+      type: 'rhythm';
+      title: string;
+      songId: string;
+      hint?: string;
     }
   | {
       /** Mostra uma nota (nome ou na pauta) e o aluno precisa tocá-la no teclado. */
@@ -123,23 +186,20 @@ export type TheoryStep =
       title: string;
       notes: number[];
       show: 'name' | 'staff';
+      /** Aceita a nota em qualquer oitava (ex.: “encontre um Dó”). */
+      anyOctave?: boolean;
+      clef?: 'treble' | 'bass';
     };
 
 export type AnyLessonStep = LessonStep | TheoryStep;
-
-export interface ExternalSource {
-  label: string;
-  url: string;
-}
 
 export interface Lesson {
   id: string;
   title: string;
   description?: string;
   steps: AnyLessonStep[];
-  /** `draft`: conteúdo interativo ainda em preparação (mostra só materiais). */
-  status?: 'ready' | 'draft';
-  sources?: ExternalSource[];
+  /** Emoji/ícone curto do nó na trilha. */
+  icon?: string;
 }
 
 export interface Unit {
@@ -155,8 +215,4 @@ export interface Course {
   description: string;
   instrument: Instrument | 'both';
   units: Unit[];
-  /** Recursos gerais do curso (treinamento, playlists, cadernos). */
-  resources?: ExternalSource[];
-  /** Curso ainda não publicado pela fonte oficial. */
-  comingSoon?: boolean;
 }

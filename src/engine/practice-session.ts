@@ -38,6 +38,8 @@ export interface SessionConfig {
   inputLatency?: number;
   /** No modo espera, quanto antes (s) da nota o toque já é aceito. */
   earlyTolerance?: number;
+  /** Qualquer tecla conta como acerto (exercícios só de ritmo). */
+  anyKey?: boolean;
 }
 
 const GROUP_EPSILON = 0.03;
@@ -85,6 +87,7 @@ export class PracticeSession {
       perfectWindow: config.perfectWindow ?? 0.08,
       inputLatency: config.inputLatency ?? 0,
       earlyTolerance: config.earlyTolerance ?? 0.25,
+      anyKey: config.anyKey ?? false,
     };
     this.reset();
   }
@@ -223,7 +226,9 @@ export class PracticeSession {
       this.registerWrong(midi);
       return;
     }
-    const matches = g.notes.filter((n) => n.midi === midi && this.resultOf(n.id) === 'pending');
+    const matches = g.notes.filter(
+      (n) => (this.cfg.anyKey || n.midi === midi) && this.resultOf(n.id) === 'pending',
+    );
     if (matches.length === 0) {
       this.registerWrong(midi);
       return;
@@ -245,7 +250,7 @@ export class PracticeSession {
     let bestErr = Infinity;
     for (const n of this.activeNotes) {
       if (n.time - t > this.cfg.hitWindow) break;
-      if (n.midi !== midi || this.resultOf(n.id) !== 'pending') continue;
+      if ((!this.cfg.anyKey && n.midi !== midi) || this.resultOf(n.id) !== 'pending') continue;
       const err = Math.abs(n.time - t);
       if (err <= this.cfg.hitWindow && err < bestErr) {
         best = n;

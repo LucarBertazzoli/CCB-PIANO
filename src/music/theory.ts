@@ -18,8 +18,17 @@ export function pitchClass(midi: number): number {
   return ((midi % 12) + 12) % 12;
 }
 
+/** Oitava no padrão internacional (Dó central = C4). */
 export function octaveOf(midi: number): number {
   return Math.floor(midi / 12) - 1;
+}
+
+/**
+ * Oitava no padrão usado pela CCB/MOR, em que o Dó central é o Dó3.
+ * (Em letras mantemos o padrão internacional: C4.)
+ */
+export function octaveFor(midi: number, notation: Notation): number {
+  return notation === 'solfege' ? Math.floor(midi / 12) - 2 : octaveOf(midi);
 }
 
 export function isBlackKey(midi: number): boolean {
@@ -41,7 +50,7 @@ export function noteName(
         ? LETTERS_FLAT
         : LETTERS;
   const base = table[pc];
-  return opts.withOctave ? `${base}${octaveOf(midi)}` : base;
+  return opts.withOctave ? `${base}${octaveFor(midi, notation)}` : base;
 }
 
 export function midiToFrequency(midi: number, a4 = 440): number {

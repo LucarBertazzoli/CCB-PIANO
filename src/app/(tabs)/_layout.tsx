@@ -18,9 +18,8 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.textDim,
         tabBarStyle: { backgroundColor: colors.bgElevated, borderTopColor: colors.border },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Aprender', tabBarIcon: icon('🎹') }} />
+      <Tabs.Screen name="index" options={{ title: 'Trilha', tabBarIcon: icon('🎹') }} />
       <Tabs.Screen name="hinos" options={{ title: 'Hinos', tabBarIcon: icon('♪') }} />
-      <Tabs.Screen name="progresso" options={{ title: 'Progresso', tabBarIcon: icon('★') }} />
       <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icon('⚙') }} />
     </Tabs>
   );

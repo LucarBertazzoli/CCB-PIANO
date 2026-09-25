@@ -24,11 +24,10 @@ sem instrutor de IA.
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
 - **Som** de piano e órgão sintetizado (sem arquivos de áudio), metrônomo.
-- **MOR integrado**: Volumes 1 e 2 com todas as unidades, links para os
-  materiais oficiais (planos de aula, videoaulas, áudios, atividades) e passos
-  interativos (quiz, “encontre a nota” no teclado/pauta, prática).
-- **Progresso**: estrelas por música/lição, lições liberadas em sequência,
-  dias seguidos, minutos praticados.
+- **Trilha gamificada baseada no MOR (Volume 1)**: 23 níveis com lições curtas —
+  explicações ilustradas, percepção auditiva (ouvir e responder), quizzes,
+  leitura de notas na pauta tocando no teclado, leitura rítmica com
+  metrônomo e estudos com partitura. Lições liberadas em sequência, com estrelas.
 
 ## Rodando
 
@@ -56,7 +55,7 @@ npm test
 ```
 src/
   app/                 Telas (Expo Router)
-    (tabs)/            Aprender (trilha) • Hinos • Progresso • Ajustes
+    (tabs)/            Trilha • Hinos • Ajustes
     licao/[id].tsx     Executa uma lição passo a passo
     hino/[songId].tsx  Detalhes da música (mãos, trecho, modo)
     tocar/[songId].tsx Player livre
@@ -64,7 +63,7 @@ src/
     types.ts           Song, Lesson, Course, passos…
     notation.ts        Notação de texto para cadastrar músicas
     songs/             Exercícios, peças, hinos
-    courses/           Trilhas (MOR e cursos introdutórios)
+    courses/trilha.ts  Trilha de aprendizagem (sequência do MOR)
   engine/              Regras do jogo, sem UI (100% testável)
     timeline.ts        Batidas → segundos, trechos, mãos ativas
     practice-session.ts Relógio, modo espera/ritmo/demo, acertos, erros
@@ -76,7 +75,7 @@ src/
     mic-input*.ts      Microfone (nativo e web)
   audio/synth.ts       Sintetizador de piano/órgão
   components/          Teclado, notas caindo, partitura, UI
-  features/            Player e passos de lição
+  features/            Player e atividades (quiz, ouvir, encontrar a nota)
   store/               Ajustes e progresso (persistidos)
 ```
 

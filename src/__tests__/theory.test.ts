@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { parseVoice, twoHands } from '@/content/notation';
+import { parseVoice, score, twoHands } from '@/content/notation';
 import { diatonicStep, frequencyToMidi, isBlackKey, midiToFrequency, noteName, parseNoteName } from '@/music/theory';
 
 describe('teoria', () => {
@@ -16,7 +16,9 @@ describe('teoria', () => {
     expect(noteName(60)).toBe('Dó');
     expect(noteName(61, 'letters')).toBe('C♯');
     expect(noteName(70, 'solfege', { preferFlats: true })).toBe('Si♭');
-    expect(noteName(60, 'solfege', { withOctave: true })).toBe('Dó4');
+    // Padrão CCB/MOR: Dó central = Dó3; em letras, C4.
+    expect(noteName(60, 'solfege', { withOctave: true })).toBe('Dó3');
+    expect(noteName(60, 'letters', { withOctave: true })).toBe('C4');
   });
 
   it('frequência ida e volta', () => {
@@ -51,5 +53,16 @@ describe('notação textual', () => {
     const notes = twoHands('E4/h', 'C3/h');
     expect(notes.map((n) => n.hand)).toEqual(['left', 'right']);
     expect(new Set(notes.map((n) => n.id)).size).toBe(2);
+  });
+});
+
+describe('pausas', () => {
+  it('score() devolve pausas para a partitura', () => {
+    const s = score('C4/q r/q D4/h', 'r/w');
+    expect(s.notes).toHaveLength(2);
+    expect(s.rests).toEqual([
+      { start: 1, duration: 1, hand: 'right' },
+      { start: 0, duration: 4, hand: 'left' },
+    ]);
   });
 });

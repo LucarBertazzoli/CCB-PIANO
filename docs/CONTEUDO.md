@@ -51,23 +51,41 @@ Registre o arquivo em `src/content/index.ts` (lista de `songs`). O teste
 `src/__tests__/content.test.ts` verifica automaticamente se cada mão fecha
 compassos completos e se as lições apontam para músicas existentes.
 
-## 2. Lições
+## 2. Lições e a trilha
 
-Uma `Lesson` é uma lista de passos:
+A trilha fica em `src/content/courses/trilha.ts`, na ordem do MOR (Volume 1).
+Cada **nível** (unidade) tem lições curtas; cada lição é uma lista de passos:
 
-| Passo | O que faz |
+| Passo | O que o aluno faz |
 | --- | --- |
-| `intro` | Texto explicativo, com teclas destacadas |
-| `video` / `material` | Abre vídeo ou PDF oficial (YouTube / Drive) |
-| `quiz` | Perguntas de múltipla escolha com explicação |
-| `find-key` | Mostra a nota (nome ou pauta) e o aluno toca no teclado |
-| `watch` | Ouvir (demonstração com notas caindo) |
-| `practice` | Aprender — as notas esperam o aluno |
-| `play` | Tocar no andamento; `minStars` exige estrelas para avançar |
+| `intro` | Lê uma explicação curta, com pauta, teclado ou figuras ilustrando (`illustration`) |
+| `listen` | Ouve sons tocados pelo app e responde (grave/agudo, subiu/desceu, curto/longo, forte/fraco, timbre, compasso, tom/semitom) |
+| `quiz` | Responde perguntas de múltipla escolha, com ilustração opcional |
+| `find-key` | Vê a nota (nome ou pauta) e toca a tecla certa (`anyOctave` aceita qualquer oitava) |
+| `rhythm` | Lê as figuras na pauta e toca **qualquer tecla** no ritmo, com metrônomo |
+| `watch` | Ouve e vê a música (demonstração) |
+| `practice` | Toca no modo espera (as notas esperam o aluno) |
+| `play` | Toca no andamento; `minStars` exige estrelas para avançar |
 
-Lições ficam em `src/content/courses/`. O MOR está em
-`src/content/courses/mor.ts`: para ativar a parte interativa de uma unidade,
-passe os passos no 5º argumento de `morUnit(...)`.
+`view: 'sheet'` mostra a partitura em vez das notas caindo (leitura).
+
+Exemplo de rodada de percepção:
+
+```ts
+{
+  type: 'listen',
+  title: 'Grave ou agudo?',
+  rounds: [
+    { question: 'O segundo som foi…', sounds: [{ midi: 60, beats: 1 }, { midi: 72, beats: 1 }],
+      options: ['Grave', 'Agudo'], answer: 1 },
+  ],
+}
+```
+
+Exercícios de ritmo são músicas com a tag `ritmo` em `src/content/songs/estudos.ts`
+(todas as notas no Si da 3ª linha: `B4/q B4 B4/h …`).
+
+Padrão de oitavas da CCB: **Dó central = Dó3** (no código, `C4` / MIDI 60).
 
 ## 3. Direitos autorais
 

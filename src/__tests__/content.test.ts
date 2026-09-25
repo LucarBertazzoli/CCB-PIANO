@@ -12,11 +12,18 @@ describe('catálogo', () => {
             if ('songId' in step) {
               const song = getSong(step.songId);
               expect(song).toBeDefined();
-              if (step.sectionId) expect(song!.sections?.some((s) => s.id === step.sectionId)).toBe(true);
+              if ('sectionId' in step && step.sectionId) expect(song!.sections?.some((s) => s.id === step.sectionId)).toBe(true);
             }
             if (step.type === 'quiz') {
               for (const q of step.questions) expect(q.answer).toBeLessThan(q.options.length);
             }
+            if (step.type === 'listen') {
+              for (const r of step.rounds) {
+                expect(r.answer).toBeLessThan(r.options.length);
+                expect(r.sounds.length).toBeGreaterThan(0);
+              }
+            }
+            if (step.type === 'rhythm') expect(getSong(step.songId)?.tags).toContain('ritmo');
           }
         }
       }
@@ -34,7 +41,8 @@ describe('catálogo', () => {
       for (const hand of ['right', 'left'] as const) {
         const notes = song.notes.filter((n) => n.hand === hand);
         if (!notes.length) continue;
-        const end = Math.max(...notes.map((n) => n.start + n.duration));
+        const rests = (song.rests ?? []).filter((r) => r.hand === hand);
+        const end = Math.max(...[...notes, ...rests].map((n) => n.start + n.duration));
         expect([song.id, hand, end % beatsPerBar]).toEqual([song.id, hand, 0]);
       }
     }

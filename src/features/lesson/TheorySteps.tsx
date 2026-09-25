@@ -1,56 +1,93 @@
-import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { synth } from '@/audio/synth';
+import { IllustrationView } from '@/components/IllustrationView';
 import { keyboardLayout } from '@/components/keyboard-layout';
 import { PianoKeyboard, type KeyHint } from '@/components/PianoKeyboard';
 import { StaffNote } from '@/components/StaffNote';
 import { Button } from '@/components/ui';
-import type { TheoryStep } from '@/content/types';
+import type { ListenSound, TheoryStep } from '@/content/types';
 import { inputHub } from '@/input/input-hub';
-import { noteName } from '@/music/theory';
+import { noteName, pitchClass } from '@/music/theory';
 import { useSettings } from '@/store/settings';
 import { colors, radius, space } from '@/theme';
 
 type StepProps<T extends TheoryStep['type']> = {
   step: Extract<TheoryStep, { type: T }>;
-  /** `score` 0..1 para passos avaliados (quiz, teclado). */
+  /** `score` 0..1 para passos avaliados. */
   onNext: (score?: number) => void;
 };
 
-/** Vídeo ou material oficial: abre o link e segue para o próximo passo. */
-export function LinkStep({ step, onNext }: StepProps<'video' | 'material'>) {
-  const [opened, setOpened] = useState(false);
-  const url = step.type === 'video' && step.youtubeId ? `https://www.youtube.com/watch?v=${step.youtubeId}` : step.url;
+/** Botões de resposta com retorno visual (verde/vermelho), como no Simply Piano. */
+function AnswerOptions({
+  options,
+  answer,
+  chosen,
+  onChoose,
+}: {
+  options: string[];
+  answer: number;
+  chosen: number | null;
+  onChoose: (i: number) => void;
+}) {
+  const answered = chosen !== null;
   return (
-    <View style={styles.center}>
-      <Text style={styles.emoji}>{step.type === 'video' ? '🎬' : '📄'}</Text>
-      <Text style={styles.title}>{step.title}</Text>
-      {step.description ? <Text style={styles.body}>{step.description}</Text> : null}
-      <View style={styles.row}>
-        <Button
-          title={step.type === 'video' ? 'Assistir' : 'Abrir material'}
-          variant={opened ? 'secondary' : 'primary'}
-          onPress={() => {
-            if (!url) return;
-            setOpened(true);
-            void WebBrowser.openBrowserAsync(url);
-          }}
-        />
-        <Button title={opened ? 'Próximo' : 'Pular'} variant={opened ? 'primary' : 'ghost'} onPress={() => onNext()} />
+    <View style={styles.options}>
+      {options.map((opt, i) => {
+        const bg = !answered ? colors.card : i === answer ? colors.success : i === chosen ? colors.danger : colors.card;
+        return (
+          <Pressable
+            key={i}
+            disabled={answered}
+            onPress={() => onChoose(i)}
+            style={({ pressed }) => [
+              styles.option,
+              { backgroundColor: bg, flexBasis: options.length <= 4 ? `${100 / options.length - 3}%` : '45%' },
+              pressed && { transform: [{ scale: 0.97 }] },
+            ]}>
+            <Text style={styles.optionText}>{opt}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function Feedback({ ok, explanation, onContinue }: { ok: boolean; explanation?: string; onContinue: () => void }) {
+  return (
+    <Animated.View entering={FadeIn.duration(150)} style={styles.feedback}>
+      <View style={{ flexShrink: 1, gap: 2 }}>
+        <Text style={[styles.feedbackTitle, { color: ok ? colors.success : colors.danger }]}>
+          {ok ? 'Muito bem!' : 'Quase! Veja a resposta certa.'}
+        </Text>
+        {explanation ? <Text style={styles.explanation}>{explanation}</Text> : null}
+      </View>
+      <Button title="Continuar" onPress={onContinue} />
+    </Animated.View>
+  );
+}
+
+function RoundCounter({ title, index, total }: { title: string; index: number; total: number }) {
+  return (
+    <View style={styles.counterRow}>
+      <Text style={styles.counter}>{title}</Text>
+      <View style={styles.pips}>
+        {Array.from({ length: total }, (_, i) => (
+          <View key={i} style={[styles.pip, i < index && styles.pipDone, i === index && styles.pipCurrent]} />
+        ))}
       </View>
     </View>
   );
 }
 
-/** Quiz de múltipla escolha, uma pergunta por vez. */
+/** Quiz de múltipla escolha, com pauta/teclado/figuras ilustrando a pergunta. */
 export function QuizStep({ step, onNext }: StepProps<'quiz'>) {
   const [index, setIndex] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
   const [correct, setCorrect] = useState(0);
   const q = step.questions[index];
-  const answered = chosen !== null;
 
   const advance = () => {
     if (index + 1 >= step.questions.length) {
@@ -63,43 +100,95 @@ export function QuizStep({ step, onNext }: StepProps<'quiz'>) {
 
   return (
     <ScrollView contentContainerStyle={styles.center}>
-      <Text style={styles.counter}>
-        {step.title} • {index + 1}/{step.questions.length}
-      </Text>
+      <RoundCounter title={step.title} index={index} total={step.questions.length} />
       <Text style={styles.title}>{q.prompt}</Text>
-      <View style={styles.options}>
-        {q.options.map((opt, i) => {
-          const isAnswer = i === q.answer;
-          const bg = !answered
-            ? colors.card
-            : isAnswer
-              ? colors.success
-              : i === chosen
-                ? colors.danger
-                : colors.card;
-          return (
-            <Pressable
-              key={i}
-              disabled={answered}
-              onPress={() => {
-                setChosen(i);
-                if (i === q.answer) setCorrect((c) => c + 1);
-              }}
-              style={[styles.option, { backgroundColor: bg }]}>
-              <Text style={styles.optionText}>{opt}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {answered && (
-        <>
-          <Text style={[styles.body, { color: chosen === q.answer ? colors.success : colors.danger }]}>
-            {chosen === q.answer ? 'Muito bem!' : 'Quase! Veja a resposta certa.'}
-          </Text>
-          {q.explanation ? <Text style={styles.body}>{q.explanation}</Text> : null}
-          <Button title="Continuar" onPress={advance} />
-        </>
-      )}
+      {q.illustration ? <IllustrationView illustration={q.illustration} compact /> : null}
+      <AnswerOptions
+        options={q.options}
+        answer={q.answer}
+        chosen={chosen}
+        onChoose={(i) => {
+          setChosen(i);
+          if (i === q.answer) setCorrect((c) => c + 1);
+        }}
+      />
+      {chosen !== null && <Feedback ok={chosen === q.answer} explanation={q.explanation} onContinue={advance} />}
+    </ScrollView>
+  );
+}
+
+/** Toca uma sequência de sons (notas, acordes e silêncios). */
+function playSounds(sounds: ListenSound[], tempo: number): number {
+  const spb = 60 / tempo;
+  let t = 0;
+  for (const s of sounds) {
+    const seconds = s.beats * spb;
+    if (!s.rest) {
+      const midis = Array.isArray(s.midi) ? s.midi : [s.midi];
+      const start = t;
+      setTimeout(() => {
+        for (const m of midis) synth.play(m, seconds, s.velocity ?? 0.7, s.instrument);
+      }, start * 1000);
+    }
+    t += seconds;
+  }
+  return t;
+}
+
+/** Percepção auditiva: o app toca e o aluno responde (grave/agudo, subiu/desceu…). */
+export function ListenStep({ step, onNext }: StepProps<'listen'>) {
+  const [index, setIndex] = useState(0);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [correct, setCorrect] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const round = step.rounds[index];
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const play = useCallback(() => {
+    synth.unlock();
+    setPlaying(true);
+    const total = playSounds(round.sounds, round.tempo ?? 90);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setPlaying(false), total * 1000 + 150);
+  }, [round]);
+
+  // Toca automaticamente ao abrir cada rodada.
+  useEffect(() => {
+    const t = setTimeout(play, 350);
+    return () => clearTimeout(t);
+  }, [play]);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const advance = () => {
+    if (index + 1 >= step.rounds.length) {
+      onNext(correct / step.rounds.length);
+      return;
+    }
+    setIndex(index + 1);
+    setChosen(null);
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.center}>
+      <RoundCounter title={step.title} index={index} total={step.rounds.length} />
+      <Text style={styles.title}>{round.question}</Text>
+      <Pressable onPress={play} style={[styles.listenBtn, playing && styles.listenBtnOn]} accessibilityLabel="Ouvir de novo">
+        <Text style={styles.listenIcon}>{playing ? '♪' : '▶'}</Text>
+      </Pressable>
+      {chosen === null ? <Text style={styles.hint}>{playing ? 'Ouça…' : 'Toque para ouvir de novo'}</Text> : null}
+      {round.illustration ? <IllustrationView illustration={round.illustration} compact /> : null}
+      <AnswerOptions
+        options={round.options}
+        answer={round.answer}
+        chosen={chosen}
+        onChoose={(i) => {
+          setChosen(i);
+          if (i === round.answer) setCorrect((c) => c + 1);
+        }}
+      />
+      {chosen !== null && <Feedback ok={chosen === round.answer} explanation={round.explanation} onContinue={advance} />}
     </ScrollView>
   );
 }
@@ -114,6 +203,7 @@ export function FindKeyStep({ step, onNext }: StepProps<'find-key'>) {
   const [mistakes, setMistakes] = useState(0);
   const [flash, setFlash] = useState<{ midi: number; ok: boolean } | null>(null);
   const target = step.notes[index];
+  const done = index >= step.notes.length;
 
   const layout = useMemo(() => {
     const low = Math.min(48, Math.floor(Math.min(...step.notes) / 12) * 12);
@@ -133,8 +223,9 @@ export function FindKeyStep({ step, onNext }: StepProps<'find-key'>) {
         else synth.noteOff(e.midi);
       }
       if (e.type !== 'on' || target === undefined) return;
-      // Pelo microfone aceitamos a nota em qualquer oitava do teclado real.
-      const ok = e.midi === target || (e.source === 'mic' && e.midi % 12 === target % 12);
+      // Pelo microfone (ou quando a atividade pede) aceitamos a nota em qualquer oitava.
+      const ok =
+        e.midi === target || ((step.anyOctave || e.source === 'mic') && pitchClass(e.midi) === pitchClass(target));
       setFlash({ midi: e.midi, ok });
       if (ok) {
         setTimeout(() => {
@@ -145,32 +236,32 @@ export function FindKeyStep({ step, onNext }: StepProps<'find-key'>) {
         setMistakes((m) => m + 1);
       }
     });
-  }, [target]);
+  }, [target, step.anyOctave]);
 
   useEffect(() => {
-    if (index >= step.notes.length) {
-      onNext(step.notes.length / (step.notes.length + mistakes));
-    }
+    if (done) onNext(step.notes.length / (step.notes.length + mistakes));
     // Só dispara ao terminar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index]);
+  }, [done]);
 
+  if (done || target === undefined) return null;
   const hints = new Map<number, KeyHint>();
   if (flash) hints.set(flash.midi, { state: flash.ok ? 'correct' : 'wrong' });
-  if (target === undefined) return null;
 
   return (
     <View style={{ flex: 1, justifyContent: 'space-between' }}>
       <View style={[styles.center, { flex: 1 }]}>
-        <Text style={styles.counter}>
-          {step.title} • {index + 1}/{step.notes.length}
+        <RoundCounter title={step.title} index={index} total={step.notes.length} />
+        <Animated.View key={index} entering={ZoomIn.duration(160)} style={{ alignItems: 'center' }}>
+          {step.show === 'staff' ? (
+            <StaffNote midi={target} clef={step.clef} height={Math.min(140, height * 0.3)} />
+          ) : (
+            <Text style={styles.bigNote}>{noteName(target, notation)}</Text>
+          )}
+        </Animated.View>
+        <Text style={styles.body}>
+          {step.anyOctave ? 'Toque esta nota em qualquer lugar do teclado' : 'Toque esta nota no teclado'}
         </Text>
-        {step.show === 'staff' ? (
-          <StaffNote midi={target} height={Math.min(140, height * 0.3)} />
-        ) : (
-          <Text style={styles.bigNote}>{noteName(target, notation)}</Text>
-        )}
-        <Text style={styles.body}>Toque esta nota no teclado</Text>
       </View>
       <View style={{ alignItems: 'center', paddingBottom: space.sm }}>
         <PianoKeyboard
@@ -188,13 +279,24 @@ export function FindKeyStep({ step, onNext }: StepProps<'find-key'>) {
 }
 
 const styles = StyleSheet.create({
-  center: { alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.md, flexGrow: 1 },
-  row: { flexDirection: 'row', gap: space.sm },
-  emoji: { fontSize: 44 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800', textAlign: 'center', maxWidth: 620 },
+  center: { alignItems: 'center', justifyContent: 'center', gap: space.sm + 4, padding: space.md, flexGrow: 1 },
+  title: { color: colors.text, fontSize: 22, fontWeight: '800', textAlign: 'center', maxWidth: 640 },
   body: { color: colors.textDim, fontSize: 16, textAlign: 'center', maxWidth: 560, lineHeight: 22 },
-  counter: { color: colors.primary, fontWeight: '700' },
-  options: { gap: space.sm, width: '100%', maxWidth: 640, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+  hint: { color: colors.textDim, fontSize: 13 },
+  counterRow: { alignItems: 'center', gap: 6 },
+  counter: { color: colors.primary, fontWeight: '800', letterSpacing: 0.5 },
+  pips: { flexDirection: 'row', gap: 4 },
+  pip: { width: 16, height: 5, borderRadius: 3, backgroundColor: colors.card },
+  pipDone: { backgroundColor: colors.success },
+  pipCurrent: { backgroundColor: colors.primary },
+  options: {
+    gap: space.sm,
+    width: '100%',
+    maxWidth: 640,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   option: {
     flexGrow: 1,
     flexBasis: '45%',
@@ -202,7 +304,34 @@ const styles = StyleSheet.create({
     padding: space.md,
     borderWidth: 1,
     borderColor: colors.border,
+    borderBottomWidth: 4,
   },
-  optionText: { color: colors.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  optionText: { color: colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  feedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    maxWidth: 640,
+    width: '100%',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.md,
+    padding: space.sm,
+    paddingLeft: space.md,
+  },
+  explanation: { color: colors.textDim, fontSize: 14 },
+  feedbackTitle: { fontSize: 18, fontWeight: '900' },
   bigNote: { color: colors.text, fontSize: 64, fontWeight: '900' },
+  listenBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 5,
+    borderBottomColor: colors.primaryDark,
+  },
+  listenBtnOn: { backgroundColor: colors.success, borderBottomColor: '#2E9E46' },
+  listenIcon: { color: '#fff', fontSize: 28, fontWeight: '900' },
 });

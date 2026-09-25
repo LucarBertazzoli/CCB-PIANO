@@ -1,29 +1,29 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { keyboardLayout } from '@/components/keyboard-layout';
-import { PianoKeyboard, type KeyHint } from '@/components/PianoKeyboard';
+import { IllustrationView } from '@/components/IllustrationView';
 import { Button, Stars } from '@/components/ui';
-import { getLesson, getSong } from '@/content';
-import type { LessonStep } from '@/content/types';
-import { starsFor } from '@/engine/scoring';
-import { FindKeyStep, LinkStep, QuizStep } from '@/features/lesson/TheorySteps';
+import { getLesson, getSong, nextLessonAfter } from '@/content';
+import type { AnyLessonStep, LessonStep } from '@/content/types';
 import type { PracticeMode } from '@/engine/practice-session';
+import { starsFor } from '@/engine/scoring';
+import { FindKeyStep, ListenStep, QuizStep } from '@/features/lesson/TheorySteps';
 import { PracticePlayer } from '@/features/player/PracticePlayer';
 import { useLandscape } from '@/features/player/use-landscape';
 import { useProgress } from '@/store/progress';
-import { useSettings } from '@/store/settings';
 import { colors, radius, space } from '@/theme';
 
-const STEP_MODE: Record<Exclude<LessonStep['type'], 'intro'>, PracticeMode> = {
+const STEP_MODE: Record<'watch' | 'practice' | 'play' | 'rhythm', PracticeMode> = {
   watch: 'demo',
   practice: 'wait',
   play: 'rhythm',
+  rhythm: 'rhythm',
 };
 
-/** Executa uma lição passo a passo: explicação → ouvir → praticar → tocar. */
+/** Executa uma lição passo a passo, como uma fase do Simply Piano. */
 export default function LessonScreen() {
   useLandscape();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,11 +31,10 @@ export default function LessonScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [stars, setStars] = useState<number[]>([]);
   const completeLesson = useProgress((s) => s.completeLesson);
-  const recordSongResult = useProgress((s) => s.recordSongResult);
 
   if (!ref) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, styles.center]}>
         <Text style={styles.title}>Lição não encontrada</Text>
         <Button title="Voltar" onPress={() => router.back()} />
       </SafeAreaView>
@@ -46,161 +45,162 @@ export default function LessonScreen() {
   const steps = lesson.steps;
   const done = stepIndex >= steps.length;
   const lessonStars = (stars.length ? Math.min(...stars) : 3) as 0 | 1 | 2 | 3;
+  const exit = () => router.back();
 
   const next = () => {
     const nextIndex = stepIndex + 1;
     if (nextIndex >= steps.length) completeLesson(lesson.id, lessonStars);
     setStepIndex(nextIndex);
   };
+  const scored = (score?: number) => {
+    if (score !== undefined) setStars((prev) => [...prev, starsFor(score)]);
+    next();
+  };
 
   if (done) {
+    const following = nextLessonAfter(lesson.id);
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        <Text style={styles.celebrate}>🎉</Text>
+        <Animated.Text entering={ZoomIn.springify()} style={styles.celebrate}>
+          🎹
+        </Animated.Text>
         <Text style={styles.title}>Lição concluída!</Text>
-        <Stars count={lessonStars} size={40} />
+        <Animated.View entering={FadeInDown.delay(150)}>
+          <Stars count={lessonStars} size={44} />
+        </Animated.View>
         <Text style={styles.body}>{lesson.title}</Text>
-        <Button title="Voltar à trilha" onPress={() => router.back()} />
+        <View style={styles.row}>
+          <Button title="Voltar à trilha" variant="secondary" onPress={exit} />
+          {following ? (
+            <Button
+              title="Próxima lição"
+              onPress={() => router.replace({ pathname: '/licao/[id]', params: { id: following.lesson.id } })}
+            />
+          ) : null}
+        </View>
       </SafeAreaView>
     );
   }
 
   const step = steps[stepIndex];
-  const header = (
-    <View style={styles.dots}>
-      {steps.map((s, i) => (
-        <View key={i} style={[styles.dot, i < stepIndex && styles.dotDone, i === stepIndex && styles.dotCurrent]} />
-      ))}
-    </View>
-  );
 
-  if (step.type === 'video' || step.type === 'material' || step.type === 'quiz' || step.type === 'find-key') {
-    const onScored = (score?: number) => {
-      if (score !== undefined) setStars((prev) => [...prev, starsFor(score)]);
-      next();
-    };
-    return (
-      <SafeAreaView style={styles.safe}>
-        {header}
-        {lesson.status === 'draft' && stepIndex === 0 ? (
-          <Text style={styles.draft}>
-            Os estudos interativos desta unidade estão em preparação. Por enquanto, use o material oficial.
-          </Text>
-        ) : null}
-        <View style={{ flex: 1 }}>
-          {step.type === 'quiz' ? (
-            <QuizStep key={stepIndex} step={step} onNext={onScored} />
-          ) : step.type === 'find-key' ? (
-            <FindKeyStep key={stepIndex} step={step} onNext={onScored} />
-          ) : (
-            <LinkStep key={stepIndex} step={step} onNext={onScored} />
-          )}
-        </View>
-        <Button title="Sair da lição" variant="ghost" onPress={() => router.back()} />
-      </SafeAreaView>
-    );
+  if (step.type === 'watch' || step.type === 'practice' || step.type === 'play' || step.type === 'rhythm') {
+    return <PlayerStep key={stepIndex} step={step} lessonTitle={lesson.title} last={stepIndex === steps.length - 1} onExit={exit} onDone={scored} />;
   }
 
-  if (step.type === 'intro') {
-    return (
-      <SafeAreaView style={styles.safe}>
-        {header}
-        <IntroStep step={step} onNext={next} onExit={() => router.back()} />
-      </SafeAreaView>
-    );
-  }
-
-  const song = getSong(step.songId);
-  if (!song) {
-    return (
-      <SafeAreaView style={[styles.safe, styles.center]}>
-        <Text style={styles.title}>Música “{step.songId}” não encontrada</Text>
-        <Button title="Pular" onPress={next} />
-      </SafeAreaView>
-    );
-  }
-
-  const minStars = step.type === 'play' ? (step.minStars ?? 1) : 0;
   return (
-    <PracticePlayer
-      key={stepIndex}
-      song={song}
-      title={`${lesson.title} • ${step.title}`}
-      initialHands={step.hands}
-      initialMode={STEP_MODE[step.type]}
-      initialTempo={step.type === 'watch' ? 1 : (step.tempoFactor ?? 1)}
-      sectionId={step.sectionId}
-      locked
-      onExit={() => router.back()}
-      onFinished={(score, mode) => {
-        if (mode !== 'demo') recordSongResult(song.id, score.stars, score.accuracy);
-      }}
-      continueLabel={stepIndex === steps.length - 1 ? 'Concluir' : 'Continuar'}
-      continueBlockedReason={(score) =>
-        score.stars < minStars ? `Consiga ${minStars} ${minStars === 1 ? 'estrela' : 'estrelas'} para continuar.` : null
-      }
-      onContinue={(score) => {
-        if (step.type === 'play') setStars((prev) => [...prev, score.stars]);
-        next();
-      }}
-    />
+    <SafeAreaView style={styles.safe}>
+      <LessonTopBar progress={stepIndex / steps.length} onExit={exit} />
+      <View style={{ flex: 1 }}>
+        {step.type === 'intro' ? (
+          <IntroStep key={stepIndex} step={step} onNext={next} />
+        ) : step.type === 'quiz' ? (
+          <QuizStep key={stepIndex} step={step} onNext={scored} />
+        ) : step.type === 'listen' ? (
+          <ListenStep key={stepIndex} step={step} onNext={scored} />
+        ) : (
+          <FindKeyStep key={stepIndex} step={step} onNext={scored} />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
-function IntroStep({
-  step,
-  onNext,
-  onExit,
-}: {
-  step: Extract<LessonStep, { type: 'intro' }>;
-  onNext: () => void;
-  onExit: () => void;
-}) {
-  const { width } = useWindowDimensions();
-  const notation = useSettings((s) => s.notation);
-  const highlight = step.highlight;
-  const layout = useMemo(() => {
-    if (!highlight?.length) return null;
-    const low = Math.min(48, Math.floor(Math.min(...highlight) / 12) * 12);
-    const high = Math.max(72, Math.ceil((Math.max(...highlight) + 1) / 12) * 12);
-    return keyboardLayout(low, high, Math.min(width - 32, 720));
-  }, [highlight, width]);
-  const hints = useMemo(
-    () =>
-      new Map<number, KeyHint>(
-        (highlight ?? []).map((m) => [m, { state: m < 60 ? 'expected-left' : 'expected-right' }]),
-      ),
-    [highlight],
-  );
-
+function LessonTopBar({ progress, onExit }: { progress: number; onExit: () => void }) {
   return (
-    <View style={styles.intro}>
-      <Text style={styles.title}>{step.title}</Text>
-      <Text style={styles.body}>{step.body}</Text>
-      {layout ? <PianoKeyboard layout={layout} height={110} hints={hints} notation={notation} /> : null}
-      <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <Button title="Sair" variant="secondary" onPress={onExit} />
-        <Button title="Próximo" onPress={onNext} />
+    <View style={styles.topBar}>
+      <Pressable onPress={onExit} hitSlop={12} style={styles.close} accessibilityLabel="Sair da lição">
+        <Text style={styles.closeText}>✕</Text>
+      </Pressable>
+      <View style={styles.track}>
+        <View style={[styles.fill, { width: `${Math.max(4, progress * 100)}%` }]} />
       </View>
     </View>
   );
 }
 
+function PlayerStep({
+  step,
+  lessonTitle,
+  last,
+  onExit,
+  onDone,
+}: {
+  step: Extract<AnyLessonStep, { type: 'watch' | 'practice' | 'play' | 'rhythm' }>;
+  lessonTitle: string;
+  last: boolean;
+  onExit: () => void;
+  onDone: (score?: number) => void;
+}) {
+  const recordSongResult = useProgress((s) => s.recordSongResult);
+  const song = getSong(step.songId);
+  if (!song) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.center]}>
+        <Text style={styles.title}>Música “{step.songId}” não encontrada</Text>
+        <Button title="Pular" onPress={() => onDone()} />
+      </SafeAreaView>
+    );
+  }
+  const rhythm = step.type === 'rhythm';
+  const minStars = step.type === 'play' ? (step.minStars ?? 1) : rhythm ? 1 : 0;
+  const view = rhythm ? 'sheet' : step.view;
+  return (
+    <PracticePlayer
+      song={song}
+      title={`${lessonTitle} • ${step.title}`}
+      initialHands={rhythm ? 'right' : step.hands}
+      initialMode={STEP_MODE[step.type]}
+      initialTempo={rhythm || step.type === 'watch' ? 1 : (step.tempoFactor ?? 1)}
+      sectionId={rhythm ? undefined : step.sectionId}
+      view={view}
+      staves={rhythm ? 'treble' : undefined}
+      rhythmOnly={rhythm}
+      hint={rhythm ? (step.hint ?? 'Toque qualquer tecla no ritmo das figuras, junto com o metrônomo.') : undefined}
+      locked
+      onExit={onExit}
+      onFinished={(score, mode) => {
+        if (mode !== 'demo' && !rhythm) recordSongResult(song.id, score.stars, score.accuracy);
+      }}
+      continueLabel={last ? 'Concluir' : 'Continuar'}
+      continueBlockedReason={(score) =>
+        score.stars < minStars ? `Consiga ${minStars} ${minStars === 1 ? 'estrela' : 'estrelas'} para continuar.` : null
+      }
+      onContinue={(score) => onDone(step.type === 'play' || rhythm ? score.accuracy : undefined)}
+    />
+  );
+}
+
+function IntroStep({ step, onNext }: { step: Extract<LessonStep, { type: 'intro' }>; onNext: () => void }) {
+  const illustration = step.illustration ?? (step.highlight ? { keys: step.highlight } : undefined);
+  return (
+    <Animated.ScrollView entering={FadeInDown.duration(200)} contentContainerStyle={styles.intro}>
+      <Text style={styles.title}>{step.title}</Text>
+      <Text style={styles.body}>{step.body}</Text>
+      {illustration ? <IllustrationView illustration={illustration} /> : null}
+      <Button title="Entendi" onPress={onNext} style={{ minWidth: 180 }} />
+    </Animated.ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  center: { alignItems: 'center', justifyContent: 'center', gap: space.md },
-  intro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.md },
-  title: { color: colors.text, fontSize: 26, fontWeight: '800', textAlign: 'center' },
-  body: { color: colors.textDim, fontSize: 17, textAlign: 'center', maxWidth: 560, lineHeight: 24 },
-  celebrate: { fontSize: 56 },
-  draft: {
-    color: colors.warning,
-    textAlign: 'center',
-    paddingHorizontal: space.md,
-    paddingTop: space.sm,
+  center: { alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.md },
+  row: { flexDirection: 'row', gap: space.sm },
+  intro: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.md },
+  title: { color: colors.text, fontSize: 24, fontWeight: '800', textAlign: 'center', maxWidth: 680 },
+  body: { color: colors.textDim, fontSize: 17, textAlign: 'center', maxWidth: 600, lineHeight: 24 },
+  celebrate: { fontSize: 60 },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingTop: space.sm },
+  close: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingTop: space.sm },
-  dot: { width: 28, height: 6, borderRadius: radius.pill, backgroundColor: colors.card },
-  dotDone: { backgroundColor: colors.success },
-  dotCurrent: { backgroundColor: colors.primary },
+  closeText: { color: colors.text, fontWeight: '800' },
+  track: { flex: 1, height: 12, borderRadius: radius.pill, backgroundColor: colors.card, overflow: 'hidden' },
+  fill: { height: 12, borderRadius: radius.pill, backgroundColor: colors.success },
 });
