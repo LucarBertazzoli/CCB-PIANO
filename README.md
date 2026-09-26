@@ -65,8 +65,8 @@ No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
   Piano, CC BY 3.0 — `assets/audio/piano/LICENSE.txt`); órgão com tubos
   sintetizados (Principal 8' + 4' + 2', coro, sopro do ataque, Subbaixo 16'
   nos graves) e reverberação de igreja; metrônomo.
-- **Teclados do tamanho real**: manuais de órgão com 61 teclas (Dó1–Dó6),
-  pedaleira de 32 pedais (Dó1–Sol3) e piano de 88 teclas.
+- **Teclado no trecho do hino**: os manuais (e o piano) mostram só a região
+  que o hino usa, com teclas pequenas; a pedaleira vai de Dó1 a Dó2.
 
 Fontes incluídas em `assets/fonts/`: OpenDyslexic (com a altura ajustada para
 os acentos do português) e DejaVu Sans (substituta da Verdana no Android). A

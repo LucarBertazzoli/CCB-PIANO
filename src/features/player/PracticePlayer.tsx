@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HymnScore } from '@/components/HymnScore';
 import { Icon, type IconName } from '@/components/Icon';
-import { keyboardLayout } from '@/components/keyboard-layout';
+import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
 import { NoteHighway } from '@/components/NoteHighway';
 import { PedalBoard } from '@/components/PedalBoard';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
@@ -50,11 +50,8 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'input', label: 'Ouvir você', icon: 'mic' },
   { id: 'look', label: 'Aparência', icon: 'contrast' },
 ];
-const INSTRUMENT_RANGE = {
-  organ: [36, 96] as const,
-  pedal: [36, 67] as const,
-  piano: [21, 108] as const,
-};
+/** Largura de referência de uma tecla branca (teclas pequenas). */
+const KEY_PX = 20;
 const APP_YOU = [
   { value: 'app' as const, label: 'App' },
   { value: 'you' as const, label: 'Você' },
@@ -196,22 +193,23 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const hasPedal = organ && p.song.notes.some((n) => n.voice === 'pedal');
   const viewMode = settings.viewMode;
   const tlNotes = p.timeline.notes;
-  // Extensão real dos instrumentos: manual de órgão com 61 teclas (Dó1 a Dó6),
-  // pedaleira de 32 pedais (Dó1 a Sol3) e piano com 88 teclas (Lá-1 a Dó7).
+  // O teclado mostra só o trecho que o hino usa (com teclas pequenas, o que
+  // couber na tela em volta dele). A pedaleira vai de Dó1 a Dó2, ou mais se
+  // o hino pedir.
   const ranges = useMemo(() => {
     const ms = tlNotes.filter((n) => n.voice !== 'pedal').map((n) => n.midi);
-    const [low, high] = organ ? INSTRUMENT_RANGE.organ : INSTRUMENT_RANGE.piano;
+    const pedalMs = tlNotes.filter((n) => n.voice === 'pedal').map((n) => n.midi);
     return {
-      // Nota fora da extensão (raro): o teclado cresce para mostrá-la.
-      manual: [Math.min(low, ...ms), Math.max(high, ...ms)] as const,
-      pedal: INSTRUMENT_RANGE.pedal,
+      manual: ms.length ? ([Math.min(...ms), Math.max(...ms)] as const) : ([48, 72] as const),
+      pedal: pedalMs.length ? ([Math.min(36, ...pedalMs), Math.max(48, ...pedalMs)] as const) : ([36, 48] as const),
     };
-  }, [tlNotes, organ]);
+  }, [tlNotes]);
+  const minWhite = Math.max(10, Math.min(36, Math.floor(usableWidth / KEY_PX)));
   // Os dois manuais usam a mesma extensão: assim as notas caindo alinham com os dois.
-  const layout = useMemo(
-    () => keyboardLayout(ranges.manual[0], ranges.manual[1], usableWidth),
-    [ranges, usableWidth],
-  );
+  const layout = useMemo(() => {
+    const [low, high] = fitRange(ranges.manual[0], ranges.manual[1], minWhite);
+    return keyboardLayout(low, high, usableWidth);
+  }, [ranges, minWhite, usableWidth]);
 
   const keyboardVisible = viewMode === 'falling' || settings.showKeyboard;
   const twoManuals = hasPedal && settings.organManuals === 'two';
