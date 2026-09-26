@@ -28,6 +28,12 @@ export interface SettingsState {
   viewMode: ViewMode;
   /** Mostra o teclado na tela junto com a partitura. */
   showKeyboard: boolean;
+  /** Tamanho das teclas na tela: grandes (menos teclas) ou pequenas (mais teclas). */
+  keySize: 'large' | 'medium' | 'small';
+  /** Órgão: um teclado só (cores por manual) ou dois manuais empilhados. */
+  organManuals: 'one' | 'two';
+  /** Órgão: mostrar a pedaleira na tela. */
+  showPedalboard: boolean;
   /** Libera todas as lições (útil para professores e para montar conteúdo). */
   unlockAll: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
@@ -50,6 +56,9 @@ export const useSettings = create<SettingsState>()(
       viewMode: 'page',
       unlockAll: false,
       showKeyboard: true,
+      keySize: 'medium',
+      organManuals: 'two',
+      showPedalboard: true,
       set: (patch) => set(patch),
     }),
     { name: 'ccb-piano-settings', storage: createJSONStorage(() => AsyncStorage), version: 1 },

@@ -6,7 +6,14 @@ import { colors } from '@/theme';
 
 import type { KeyboardLayout, KeyRect } from './keyboard-layout';
 
-export type KeyState = 'idle' | 'pressed' | 'expected-right' | 'expected-left' | 'correct' | 'wrong';
+export type KeyState =
+  | 'idle'
+  | 'pressed'
+  | 'expected-right'
+  | 'expected-left'
+  | 'expected-pedal'
+  | 'correct'
+  | 'wrong';
 
 export interface KeyHint {
   state: KeyState;
@@ -21,6 +28,11 @@ interface Props {
   showLabels?: boolean;
   onNoteOn?: (midi: number) => void;
   onNoteOff?: (midi: number) => void;
+  /** Etiqueta no canto (ex.: “Superior”, “Inferior”) e sua cor. */
+  tag?: string;
+  tagColor?: string;
+  /** Bemóis em vez de sustenidos nos nomes (tonalidades com ♭). */
+  preferFlats?: boolean;
 }
 
 function keyColor(black: boolean, state: KeyState): string {
@@ -29,6 +41,8 @@ function keyColor(black: boolean, state: KeyState): string {
       return black ? '#1F7FC4' : colors.rightHandLight;
     case 'expected-left':
       return black ? '#7D3FCC' : colors.leftHandLight;
+    case 'expected-pedal':
+      return black ? '#00796B' : '#7FD8C8';
     case 'correct':
       return colors.keyCorrect;
     case 'wrong':
@@ -45,6 +59,7 @@ const Key = memo(function Key({
   height,
   hint,
   label,
+  strong,
   onNoteOn,
   onNoteOff,
 }: {
@@ -52,11 +67,14 @@ const Key = memo(function Key({
   height: number;
   hint?: KeyHint;
   label?: string;
+  /** Dó com número da oitava (referência de posição). */
+  strong?: boolean;
   onNoteOn?: (midi: number) => void;
   onNoteOff?: (midi: number) => void;
 }) {
   const state = hint?.state ?? 'idle';
   const keyHeight = rect.black ? height * 0.62 : height;
+  const fontSize = Math.max(8, Math.min(12, rect.width * 0.36));
   return (
     <Pressable
       onPressIn={() => onNoteOn?.(rect.midi)}
@@ -72,13 +90,15 @@ const Key = memo(function Key({
           zIndex: rect.black ? 2 : 1,
         },
       ]}>
-      {hint?.finger && (state === 'expected-right' || state === 'expected-left') ? (
+      {hint?.finger && rect.width >= 18 && (state === 'expected-right' || state === 'expected-left') ? (
         <View style={[styles.fingerBadge, { backgroundColor: state === 'expected-right' ? colors.rightHand : colors.leftHand }]}>
           <Text style={styles.fingerText}>{hint.finger}</Text>
         </View>
       ) : null}
       {label ? (
-        <Text numberOfLines={1} style={[styles.label, rect.black && styles.labelBlack]}>
+        <Text
+          numberOfLines={1}
+          style={[styles.label, { fontSize }, strong && styles.labelStrong, rect.black && styles.labelBlack]}>
           {label}
         </Text>
       ) : null}
@@ -98,16 +118,19 @@ export const PianoKeyboard = memo(function PianoKeyboard({
   showLabels = true,
   onNoteOn,
   onNoteOff,
+  tag,
+  tagColor,
+  preferFlats,
 }: Props) {
+  // Teclas estreitas: só os Dós ganham nome (com a oitava) para não poluir.
+  const narrow = layout.whiteWidth < 24;
   return (
     <View style={[styles.container, { width: layout.width, height }]}>
       {layout.keys.map((rect) => {
         const hint = hints?.get(rect.midi);
         const isC = rect.midi % 12 === 0;
-        const showLabel = !rect.black && (showLabels || isC);
-        const label = showLabel
-          ? noteName(rect.midi, notation, { withOctave: isC && !showLabels })
-          : undefined;
+        const showLabel = !rect.black && (isC || (showLabels && !narrow));
+        const label = showLabel ? noteName(rect.midi, notation, { withOctave: isC, preferFlats }) : undefined;
         return (
           <Key
             key={rect.midi}
@@ -115,11 +138,17 @@ export const PianoKeyboard = memo(function PianoKeyboard({
             height={height}
             hint={hint}
             label={label}
+            strong={isC}
             onNoteOn={onNoteOn}
             onNoteOff={onNoteOff}
           />
         );
       })}
+      {tag ? (
+        <View pointerEvents="none" style={[styles.tag, { backgroundColor: tagColor ?? colors.primary }]}>
+          <Text style={styles.tagText}>{tag}</Text>
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -152,6 +181,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B6475',
   },
+  labelStrong: { color: '#1D2433', fontWeight: '800' },
+  tag: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    zIndex: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    opacity: 0.92,
+  },
+  tagText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   labelBlack: {
     color: '#DDD',
   },

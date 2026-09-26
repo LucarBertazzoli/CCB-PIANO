@@ -75,7 +75,8 @@ interface Layout {
 }
 
 function computeLayout(width: number, height: number, song: Song, timeline: Timeline, hasPedal: boolean): Layout {
-  const gap = Math.max(6.5, Math.min(10, width / 100, height / (hasPedal ? 30 : 22)));
+  // Espaçamento das linhas: o sistema inteiro (com pedaleira) precisa caber na tela.
+  const gap = Math.max(5, Math.min(10, width / 100, height / (hasPedal ? 32 : 23)));
   const marginX = 14;
   const keyCount = Math.abs(song.keySignature);
   const header = gap * 4.6 + keyCount * gap * 1.05 + gap * 0.6;
@@ -125,7 +126,7 @@ function computeLayout(width: number, height: number, song: Song, timeline: Time
   return {
     gap,
     marginX,
-    topPad: gap * 7.5,
+    topPad: Math.max(gap * 7.5, 46),
     systemHeight: gap * (hasPedal ? 31 : 21),
     systems: firstOfSystem.length,
     hasPedal,

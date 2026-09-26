@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
 import { HymnScore } from '@/components/HymnScore';
 import { NoteHighway } from '@/components/NoteHighway';
+import { PedalBoard } from '@/components/PedalBoard';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { SheetMusic } from '@/components/SheetMusic';
 import { Button, Chip, Stars } from '@/components/ui';
 import type { HandSelection, Song, Voice } from '@/content/types';
 import type { PracticeMode } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
+import type { TimedNote } from '@/engine/timeline';
 import { inputHub } from '@/input/input-hub';
 import { noteName } from '@/music/theory';
 import { useSettings, type ViewMode } from '@/store/settings';
@@ -79,21 +81,53 @@ export function PracticePlayer(props: PracticePlayerProps) {
   });
 
   const usableWidth = width - insets.left - insets.right;
-  const layout = useMemo(() => {
-    const [low, high] = fitRange(p.timeline.lowest, p.timeline.highest, usableWidth < 500 ? 10 : 15);
+  const isOrgan = settings.instrument === 'organ' && p.song.notes.some((n) => n.voice === 'pedal');
+
+  // Extensões: notas dos manuais (sem pedaleira), por mão.
+  const tlNotes = p.timeline.notes;
+  const ranges = useMemo(() => {
+    const range = (pred: (n: TimedNote) => boolean) => {
+      const ms = tlNotes.filter(pred).map((n) => n.midi);
+      return ms.length ? ([Math.min(...ms), Math.max(...ms)] as const) : ([60, 72] as const);
+    };
+    const pedalMs = tlNotes.filter((n) => n.voice === 'pedal').map((n) => n.midi);
+    return {
+      manual: range((n) => n.voice !== 'pedal'),
+      right: range((n) => n.voice !== 'pedal' && n.hand === 'right'),
+      left: range((n) => n.voice !== 'pedal' && n.hand === 'left'),
+      pedal: pedalMs.length ? ([Math.min(36, ...pedalMs), Math.max(48, ...pedalMs)] as const) : ([36, 48] as const),
+    };
+  }, [tlNotes]);
+
+  // Quantas teclas brancas cabem, conforme o tamanho escolhido (mais teclas = teclas menores).
+  const keyPx = settings.keySize === 'large' ? 40 : settings.keySize === 'small' ? 20 : 28;
+  const minWhite = Math.max(10, Math.min(36, Math.floor(usableWidth / keyPx)));
+  const fit = (r: readonly [number, number]) => {
+    const [low, high] = fitRange(r[0], r[1], minWhite);
     return keyboardLayout(low, high, usableWidth);
-  }, [p.timeline.lowest, p.timeline.highest, usableWidth]);
+  };
+  const layout = useMemo(() => fit(ranges.manual), [ranges, minWhite, usableWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const upperLayout = useMemo(() => fit(ranges.right), [ranges, minWhite, usableWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lowerLayout = useMemo(() => fit(ranges.left), [ranges, minWhite, usableWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const topBar = 50;
   const [panelOpen, setPanelOpen] = useState(false);
   // O teclado pode ser escondido (microfone/MIDI); nas notas caindo ele é sempre mostrado.
   const keyboardVisible = viewMode === 'falling' || settings.showKeyboard;
-  const keyboardHeight = !keyboardVisible
+  const twoManuals = isOrgan && settings.organManuals === 'two' && viewMode !== 'falling';
+  const pedalVisible = keyboardVisible && isOrgan && settings.showPedalboard;
+  const pedalHeight = pedalVisible ? Math.round(Math.max(30, Math.min(48, height * 0.1))) : 0;
+  const manualHeight = !keyboardVisible
     ? 0
-    : viewMode === 'page'
-      ? Math.max(80, Math.min(150, height * 0.22))
-      : Math.max(90, Math.min(190, height * 0.28));
+    : twoManuals
+      ? Math.round(Math.max(46, Math.min(90, height * 0.13)))
+      : viewMode === 'page'
+        ? Math.round(Math.max(70, Math.min(150, height * 0.2)))
+        : Math.round(Math.max(80, Math.min(180, height * 0.25)));
+  const keyboardHeight = (twoManuals ? manualHeight * 2 + 2 : manualHeight) + pedalHeight;
   const stageHeight = Math.max(120, height - insets.top - insets.bottom - topBar - keyboardHeight);
+  const preferFlats = p.song.keySignature < 0;
+  const highwayNotes = useMemo(() => tlNotes.filter((n) => n.voice !== 'pedal'), [tlNotes]);
 
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
   useEffect(() => inputHub.onStatusChange(() => setInputError(inputHub.error)), []);
@@ -201,7 +235,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
           <NoteHighway
             layout={layout}
             height={stageHeight}
-            notes={p.timeline.notes}
+            notes={highwayNotes}
             barLines={p.timeline.barLines}
             pps={settings.fallSpeed}
             time={p.time}
@@ -275,6 +309,21 @@ export function PracticePlayer(props: PracticePlayerProps) {
               <Switch value={settings.playAccompaniment} onValueChange={(v) => settings.set({ playAccompaniment: v })} />
             </View>
             <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Teclas</Text>
+              <Chip compact label="Grandes" selected={settings.keySize === 'large'} onPress={() => settings.set({ keySize: 'large' })} />
+              <Chip compact label="Médias" selected={settings.keySize === 'medium'} onPress={() => settings.set({ keySize: 'medium' })} />
+              <Chip compact label="Pequenas (mais teclas)" selected={settings.keySize === 'small'} onPress={() => settings.set({ keySize: 'small' })} />
+            </View>
+            {isOrgan ? (
+              <View style={styles.panelRow}>
+                <Text style={styles.panelLabel}>Órgão</Text>
+                <Chip compact label="Dois manuais" selected={settings.organManuals === 'two'} onPress={() => settings.set({ organManuals: 'two' })} />
+                <Chip compact label="Um teclado (cores)" selected={settings.organManuals === 'one'} onPress={() => settings.set({ organManuals: 'one' })} />
+                <Text style={styles.panelLabel}>Pedaleira</Text>
+                <Switch value={settings.showPedalboard} onValueChange={(v) => settings.set({ showPedalboard: v })} />
+              </View>
+            ) : null}
+            <View style={styles.panelRow}>
               <Text style={styles.panelLabel}>Teclado na tela</Text>
               <Switch value={settings.showKeyboard} onValueChange={(v) => settings.set({ showKeyboard: v })} />
               <Text style={styles.panelHint}>Esconda para ver mais partitura (usando microfone ou MIDI).</Text>
@@ -330,15 +379,63 @@ export function PracticePlayer(props: PracticePlayerProps) {
       </View>
 
       {keyboardVisible ? (
-      <PianoKeyboard
-        layout={layout}
-        height={keyboardHeight}
-        hints={p.hints}
-        notation={settings.notation}
-        showLabels={settings.showKeyLabels}
-        onNoteOn={noteOn}
-        onNoteOff={noteOff}
-      />
+        <View>
+          {twoManuals ? (
+            <>
+              <PianoKeyboard
+                layout={upperLayout}
+                height={manualHeight}
+                hints={p.hintSets.right}
+                notation={settings.notation}
+                showLabels={settings.showKeyLabels}
+                preferFlats={preferFlats}
+                tag="SUPERIOR • mão direita"
+                tagColor={colors.rightHand}
+                onNoteOn={noteOn}
+                onNoteOff={noteOff}
+              />
+              <View style={{ height: 2, backgroundColor: '#000' }} />
+              <PianoKeyboard
+                layout={lowerLayout}
+                height={manualHeight}
+                hints={p.hintSets.left}
+                notation={settings.notation}
+                showLabels={settings.showKeyLabels}
+                preferFlats={preferFlats}
+                tag="INFERIOR • mão esquerda"
+                tagColor={colors.leftHand}
+                onNoteOn={noteOn}
+                onNoteOff={noteOff}
+              />
+            </>
+          ) : (
+            <PianoKeyboard
+              layout={layout}
+              height={manualHeight}
+              hints={p.hints}
+              notation={settings.notation}
+              showLabels={settings.showKeyLabels}
+              preferFlats={preferFlats}
+              tag={isOrgan ? 'AZUL: superior • ROXO: inferior' : undefined}
+              tagColor="#2A3550"
+              onNoteOn={noteOn}
+              onNoteOff={noteOff}
+            />
+          )}
+          {pedalVisible ? (
+            <PedalBoard
+              width={usableWidth}
+              height={pedalHeight}
+              low={ranges.pedal[0]}
+              high={ranges.pedal[1]}
+              hints={p.hintSets.pedal}
+              notation={settings.notation}
+              preferFlats={preferFlats}
+              onNoteOn={noteOn}
+              onNoteOff={noteOff}
+            />
+          ) : null}
+        </View>
       ) : null}
     </View>
   );

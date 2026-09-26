@@ -217,24 +217,32 @@ export function usePractice({
     return () => cancelAnimationFrame(raf);
   }, [session, time, timeline.secondsPerBeat, song.timeSignature]);
 
-  // Dicas no teclado: teclas esperadas (cor da mão + dedo), acertos e erros.
-  const hints = useMemo(() => {
-    const map = new Map<number, KeyHint>();
+  // Dicas nos teclados: teclas esperadas (cor do manual + dedo), acertos e erros.
+  // Separadas por manual superior (mão direita), inferior (mão esquerda) e pedaleira.
+  const hintSets = useMemo(() => {
+    const right = new Map<number, KeyHint>();
+    const left = new Map<number, KeyHint>();
+    const pedal = new Map<number, KeyHint>();
+    const manual = new Map<number, KeyHint>();
     if (expectedKey) {
       for (const n of session.expectedNotes()) {
         if (!n.active && session.mode !== 'demo') continue;
-        map.set(n.midi, {
-          state: n.hand === 'right' ? 'expected-right' : 'expected-left',
-          finger: n.finger,
-        });
+        if (n.voice === 'pedal') {
+          pedal.set(n.midi, { state: 'expected-pedal' });
+          continue;
+        }
+        const hint: KeyHint = { state: n.hand === 'right' ? 'expected-right' : 'expected-left', finger: n.finger };
+        (n.hand === 'right' ? right : left).set(n.midi, hint);
+        if (!manual.has(n.midi) || n.hand === 'right') manual.set(n.midi, hint);
       }
     }
-    for (const midi of pressed) {
-      if (!map.has(midi)) map.set(midi, { state: 'pressed' });
+    for (const map of [right, left, pedal, manual]) {
+      for (const midi of pressed) if (!map.has(midi)) map.set(midi, { state: 'pressed' });
+      for (const [midi, kind] of flashes) map.set(midi, { state: kind });
     }
-    for (const [midi, kind] of flashes) map.set(midi, { state: kind });
-    return map;
+    return { manual, right, left, pedal };
   }, [expectedKey, pressed, flashes, session]);
+  const hints = hintSets.manual;
 
   const controls = useMemo(
     () => ({
@@ -264,6 +272,7 @@ export function usePractice({
     progress,
     score,
     hints,
+    hintSets,
     feedback,
     streak: session.streakCount,
     inputSource,
