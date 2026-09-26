@@ -16,6 +16,7 @@ const VOICES: { value: Voice; label: string; hand: 'right' | 'left' }[] = [
   { value: 'alto', label: 'Contralto', hand: 'right' },
   { value: 'tenor', label: 'Tenor', hand: 'left' },
   { value: 'bass', label: 'Baixo', hand: 'left' },
+  { value: 'pedal', label: 'Pedaleira', hand: 'left' },
 ];
 
 const MODES: { mode: PracticeMode; icon: string; title: string; text: string; primary?: boolean }[] = [
@@ -78,6 +79,11 @@ export default function HymnDetailScreen() {
           <Text style={styles.back}>‹ Hinário</Text>
         </Pressable>
         {song.hymnNumber ? <Text style={styles.number}>Hino {song.hymnNumber}</Text> : null}
+        {song.tempoMark ? (
+          <Text style={styles.meta}>
+            {song.timeSignature.join('/')} • {song.tempoMark.unit === 'e' ? '♪' : song.tempoMark.unit === 'h' ? 'mínima' : '♩'} = {song.tempoMark.min}–{song.tempoMark.max}
+          </Text>
+        ) : null}
         <Text style={styles.title}>{song.title}</Text>
         {song.subtitle ? <Text style={styles.subtitle}>{song.subtitle}</Text> : null}
         <View style={styles.row}>
@@ -111,7 +117,7 @@ export default function HymnDetailScreen() {
           <>
             <Text style={styles.hint}>Ou escolha as vozes (as outras tocam junto com você):</Text>
             <View style={[styles.row, { flexWrap: 'wrap' }]}>
-              {VOICES.map((v) => (
+              {VOICES.filter((v) => v.value !== 'pedal' || instrument === 'organ').map((v) => (
                 <Chip key={v.value} label={v.label} selected={voices.includes(v.value)} onPress={() => toggleVoice(v.value)} />
               ))}
             </View>

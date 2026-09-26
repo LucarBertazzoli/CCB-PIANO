@@ -124,7 +124,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
   const waitingNames = p.status === 'waiting'
     ? [...p.hints.entries()]
         .filter(([, h]) => h.state === 'expected-left' || h.state === 'expected-right')
-        .map(([m]) => noteName(m, settings.notation))
+        .map(([m]) => noteName(m, settings.notation, { preferFlats: song.keySignature < 0 }))
         .join(' + ')
     : '';
 
@@ -191,7 +191,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
           <HymnScore
             width={usableWidth}
             height={stageHeight}
-            song={song}
+            song={p.song}
             timeline={p.timeline}
             time={p.time}
             resultOf={resultOf}
@@ -209,6 +209,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
             version={p.version}
             notation={settings.notation}
             labelMode={settings.noteLabels}
+            preferFlats={song.keySignature < 0}
           />
         ) : (
           <SheetMusic

@@ -12,8 +12,12 @@ sem instrutor de IA.
 
 ## O que já funciona
 
-- **Hinário**: os 480 hinos pelo número; os que têm partitura cadastrada abrem
-  para estudo (ver `docs/CONTEUDO.md`).
+- **Hinário completo**: os 480 hinos e 6 coros do Hinário nº 5, com título,
+  autor, tonalidade, compasso, metrônomo e as 4 vozes (importados de
+  partituras digitais — ver `docs/CONTEUDO.md`).
+- **Órgão no formato da organista**: 3 pautas (mão direita, mão esquerda e
+  pedaleira), notas repetidas seguradas nas vozes internas e pedal a partir do
+  baixo — conferido com o hinário de órgão impresso.
 - **Partitura no formato do hinário da organista**: duas pautas, 4 vozes com
   hastes por voz, armadura, fórmula de compasso, ♩ = metrônomo, dedilhado,
   acidentes corretos por compasso, cursor que acompanha e página que rola sozinha.

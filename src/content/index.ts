@@ -1,4 +1,5 @@
 import { courses } from './courses';
+import { loadHymn } from './hymnal';
 import { estudos, rhythmSongs } from './songs/estudos';
 import { exercises } from './songs/exercises';
 import { hymns } from './songs/hymns';
@@ -16,7 +17,7 @@ for (const s of [...exercises, ...estudos, ...rhythmSongs, ...pieces, ...hymns])
 }
 
 export function getSong(id: string): Song | undefined {
-  return songs.get(id);
+  return songs.get(id) ?? loadHymn(id);
 }
 
 export function allSongs(): Song[] {

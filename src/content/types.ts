@@ -57,6 +57,18 @@ export interface Song {
   rests?: RestEvent[];
   /** `false` esconde a fórmula de compasso (como nos primeiros Estudos do MOR). */
   showTimeSignature?: boolean;
+  /**
+   * Início de cada compasso em batidas (hinos importados: inclui anacruse e
+   * compassos quebrados no fim da linha). Sem valor = compassos regulares.
+   */
+  measures?: number[];
+  /** Início de cada linha (sistema) do hinário, em batidas. */
+  lines?: number[];
+  /** Fim da música em batidas. */
+  endBeat?: number;
+  /** Indicação de metrônomo como no hinário (ex.: ♪ = 112–144). */
+  tempoMark?: { unit: 'q' | 'e' | 'q.' | 'h'; min: number; max: number; text?: string };
+  composer?: string;
   sections?: Section[];
   tags?: string[];
   /** Origem/licença do arranjo. */

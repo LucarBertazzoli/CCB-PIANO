@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { synth } from '@/audio/synth';
+import { organArrangement } from '@/content/organ';
 import type { HandSelection, Song, Voice } from '@/content/types';
 import { PracticeSession, type PracticeMode, type SessionStatus } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
@@ -33,7 +34,7 @@ const FLASH_MS = 220;
  * (toque, MIDI, microfone). Toda a regra de jogo fica em `PracticeSession`.
  */
 export function usePractice({
-  song,
+  song: baseSong,
   hands,
   mode,
   tempoFactor,
@@ -47,6 +48,13 @@ export function usePractice({
   const playAccompaniment = useSettings((s) => s.playAccompaniment);
   const metronomeSetting = useSettings((s) => s.metronome);
   const metronome = metronomeSetting || !!forceMetronome;
+
+  // No órgão, hinos a 4 vozes usam o arranjo da organista (legato + pedaleira).
+  const instrument = useSettings((s) => s.instrument);
+  const song = useMemo(
+    () => (instrument === 'organ' && baseSong.kind === 'hymn' ? organArrangement(baseSong) : baseSong),
+    [instrument, baseSong],
+  );
 
   const section = song.sections?.find((s) => s.id === sectionId);
   const timeline = useMemo(
@@ -66,7 +74,11 @@ export function usePractice({
       new PracticeSession({
         timeline,
         mode,
-        leadIn: Math.max(1.5, timeline.secondsPerBeat * song.timeSignature[0]),
+        // Contagem de um compasso (em semínimas), entre 1,5 e 4 segundos.
+        leadIn: Math.min(
+          4,
+          Math.max(1.5, timeline.secondsPerBeat * song.timeSignature[0] * (4 / song.timeSignature[1])),
+        ),
         chordPolicy: inputSource === 'mic' ? 'any' : 'all',
         inputLatency: inputSource === 'mic' ? micLatency : 0,
         anyKey,
@@ -172,7 +184,7 @@ export function usePractice({
     let lastBeat = Math.floor(session.time / timeline.secondsPerBeat);
     let lastProgress = -1;
     let lastExpected = '';
-    const beatsPerBar = song.timeSignature[0];
+    const beatsPerBar = Math.max(1, Math.round(song.timeSignature[0] * (4 / song.timeSignature[1])));
 
     const loop = (now: number) => {
       const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
@@ -243,6 +255,7 @@ export function usePractice({
   );
 
   return {
+    song,
     session,
     timeline,
     time,

@@ -1,3 +1,4 @@
+import { hymnId, hymnIndex } from '../hymnal';
 import { fourVoices } from '../notation';
 import type { Song } from '../types';
 
@@ -56,29 +57,15 @@ export const hymns: Song[] = [
   },
 ];
 
-/** Uma entrada do hinário (com ou sem partitura cadastrada). */
+/** Uma entrada do hinário. */
 export interface HymnEntry {
+  kind: 'hino' | 'coro';
   number: number;
-  title?: string;
-  /** Id da música quando a partitura já está cadastrada. */
-  songId?: string;
+  title: string;
+  songId: string;
 }
 
-/** Total de hinos do hinário nº 5. */
-export const HYMNAL_SIZE = 480;
-
-/**
- * Títulos oficiais do hinário (número → título). Preencher com a lista
- * oficial; enquanto isso, os hinos aparecem só pelo número.
- */
-export const hymnTitles: Record<number, string> = {};
-
-/** Catálogo completo: os 480 números, ligando os que já têm partitura. */
+/** Catálogo completo: hinos 1–480 e coros 1–6, todos com partitura. */
 export function hymnCatalog(): HymnEntry[] {
-  const withScore = new Map(hymns.filter((h) => h.hymnNumber).map((h) => [h.hymnNumber!, h]));
-  return Array.from({ length: HYMNAL_SIZE }, (_, i) => {
-    const number = i + 1;
-    const song = withScore.get(number);
-    return { number, title: song?.title ?? hymnTitles[number], songId: song?.id };
-  });
+  return hymnIndex.map((h) => ({ kind: h.kind, number: h.n, title: h.title, songId: hymnId(h.kind, h.n) }));
 }

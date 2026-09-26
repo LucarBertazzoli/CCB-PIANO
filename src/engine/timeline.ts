@@ -34,6 +34,10 @@ export interface Timeline {
   duration: number;
   /** Tempos (s) das barras de compasso dentro do trecho. */
   barLines: number[];
+  /** Início de cada compasso do trecho em batidas (relativas ao início), mais o fim. */
+  measureStarts: number[];
+  /** Início de cada linha (sistema) do hinário no trecho, em batidas relativas. */
+  lineStarts: number[];
   lowest: number;
   highest: number;
 }
@@ -72,29 +76,45 @@ export function buildTimeline(song: Song, opts: TimelineOptions): Timeline {
       duration: Math.min(n.duration, endBeat - n.start) * secondsPerBeat,
       beat: n.start,
       beats: n.duration,
-      active:
-        isHandActive(n.hand, opts.hands) && (!opts.voices?.length || !n.voice || opts.voices.includes(n.voice)),
+      active: opts.voices?.length
+        ? !!n.voice && opts.voices.includes(n.voice)
+        : isHandActive(n.hand, opts.hands) && n.voice !== 'pedal',
     }))
     .sort((a, b) => a.time - b.time || a.midi - b.midi);
 
-  const lastBeat = Math.max(
+  const lastNoteBeat = Math.max(
     notes.reduce((max, n) => Math.max(max, n.beat + n.beats), startBeat),
     (song.rests ?? []).reduce((max, r) => (r.start < endBeat ? Math.max(max, r.start + r.duration) : max), startBeat),
   );
-  const duration = (Math.min(lastBeat, endBeat) - startBeat) * secondsPerBeat;
+  const lastBeat = Math.min(endBeat, Math.max(lastNoteBeat, song.endBeat ?? 0));
+  const duration = (lastBeat - startBeat) * secondsPerBeat;
 
+  // Compassos: os do hinário (com anacruse etc.) ou regulares.
   const beatsPerBar = song.timeSignature[0] * (4 / song.timeSignature[1]);
-  const barLines: number[] = [];
-  const firstBar = Math.ceil(startBeat / beatsPerBar) * beatsPerBar;
-  for (let b = firstBar; b <= Math.min(lastBeat, endBeat); b += beatsPerBar) {
-    barLines.push((b - startBeat) * secondsPerBeat);
+  let bars: number[];
+  if (song.measures?.length) {
+    bars = song.measures.filter((b) => b >= startBeat - 1e-9 && b < lastBeat - 1e-9);
+    if (!bars.length || bars[0] > startBeat + 1e-9) bars.unshift(startBeat);
+  } else {
+    bars = [];
+    for (let b = Math.floor(startBeat / beatsPerBar) * beatsPerBar; b < lastBeat - 1e-9; b += beatsPerBar) {
+      bars.push(Math.max(b, startBeat));
+    }
+    if (!bars.length) bars.push(startBeat);
   }
+  const measureStarts = [...bars.map((b) => b - startBeat), lastBeat - startBeat];
+  const barLines = measureStarts.slice(1).map((b) => b * secondsPerBeat);
+  const lineStarts = (song.lines ?? [])
+    .filter((b) => b >= startBeat - 1e-9 && b < lastBeat - 1e-9)
+    .map((b) => b - startBeat);
+  if (!lineStarts.length || lineStarts[0] > 1e-9) lineStarts.unshift(0);
 
   const rests: TimedRest[] = (song.rests ?? [])
     .filter((r) => r.start >= startBeat && r.start < endBeat)
     .map((r) => ({ hand: r.hand, voice: r.voice, time: (r.start - startBeat) * secondsPerBeat, beats: r.duration }));
 
-  const midis = notes.map((n) => n.midi);
+  // A extensão do teclado ignora a pedaleira quando ela só acompanha.
+  const midis = notes.filter((n) => n.voice !== 'pedal' || n.active).map((n) => n.midi);
   return {
     notes,
     rests,
@@ -102,6 +122,8 @@ export function buildTimeline(song: Song, opts: TimelineOptions): Timeline {
     originBeat: startBeat,
     duration,
     barLines,
+    measureStarts,
+    lineStarts,
     lowest: midis.length ? Math.min(...midis) : 60,
     highest: midis.length ? Math.max(...midis) : 72,
   };

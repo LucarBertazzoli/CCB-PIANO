@@ -24,6 +24,8 @@ interface Props {
   version: number;
   notation: Notation;
   labelMode: NoteLabelMode;
+  /** Tonalidades com bemóis escrevem as teclas pretas como bemóis (Mi♭, não Ré♯). */
+  preferFlats?: boolean;
 }
 
 function noteColors(note: TimedNote, result: NoteResult) {
@@ -97,6 +99,7 @@ export const NoteHighway = memo(function NoteHighway({
   resultOf,
   notation,
   labelMode,
+  preferFlats,
 }: Props) {
   const scrollStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: height + time.value * pps }],
@@ -125,7 +128,7 @@ export const NoteHighway = memo(function NoteHighway({
           if (!key) return null;
           const label =
             labelMode === 'name'
-              ? noteName(n.midi, notation)
+              ? noteName(n.midi, notation, { preferFlats })
               : labelMode === 'finger' && n.finger
                 ? String(n.finger)
                 : undefined;

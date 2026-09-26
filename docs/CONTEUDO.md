@@ -4,42 +4,49 @@ Todo o conteúdo é **dado** (TypeScript em `src/content/`). As telas não mudam
 quando entram hinos ou lições novas. No futuro, os mesmos objetos podem vir de
 uma API/JSON.
 
-## 1. Hinos (hinário da organista)
+## 1. Hinário (480 hinos + 6 coros)
 
-Cada hino é um `Song` em `src/content/songs/hymns.ts`, escrito **a 4 vozes**,
-como no hinário da organista. Soprano e contralto ficam na clave de Sol (mão
-direita); tenor e baixo na clave de Fá (mão esquerda). Com as vozes separadas,
-o aluno pode praticar uma voz, uma mão ou o hino inteiro, e a partitura desenha
-as hastes para cima (soprano/tenor) e para baixo (contralto/baixo).
+Os hinos ficam em `src/content/hinario/` (um arquivo `.json` por hino) e são
+gerados pelo importador a partir de partituras digitais do MuseScore:
+
+```bash
+python3 scripts/importar-hinario.py <pasta-com-arquivos-.mscx> src/content/hinario
+```
+
+Fonte atual: partituras digitais a 4 vozes do Hinário nº 5
+(<https://github.com/eneiasramos/ccb-hinario-5-do>, pasta `do/musescore/xml`).
+O importador:
+
+- separa soprano, contralto, tenor e baixo (pela altura em cada pauta);
+- lê pontos de aumento, ligaduras, quiálteras, pausas e anacruses;
+- mantém os compassos e as **linhas do hinário** (viram os trechos “1ª linha”…);
+- resolve os ritornelos de estrofes tocando o hino uma vez, pela casa final;
+- guarda título, autor, tonalidade, compasso e metrônomo (♩, ♪, ♩. ou mínima);
+- gera `registry.ts` (índice e carregamento sob demanda).
+
+No órgão, o app monta o **arranjo da organista** (`src/content/organ.ts`):
+mão direita soprano+contralto, mão esquerda tenor+baixo com notas repetidas
+seguradas (legato) e pedaleira a partir do baixo. O teste
+`src/__tests__/hymnal.test.ts` confere o hino 1 e o hino 5 com o hinário de
+órgão impresso.
+
+Para trocar a fonte (por exemplo, pelos arquivos oficiais da CCB), basta
+exportá-los para `.mscx` do MuseScore e rodar o importador de novo.
+
+## 1b. Músicas escritas à mão (exercícios e exemplos)
+
+Para exercícios e peças curtas, a notação de texto continua disponível:
 
 ```ts
 import { fourVoices } from '../notation';
 
-{
-  id: 'hino-158',
-  kind: 'hymn',
-  hymnNumber: 158,
-  title: 'Título do hino',
-  tempo: 76,                 // ♩ = 76 (indicação de metrônomo do hinário)
-  timeSignature: [4, 4],
-  keySignature: -1,          // -1 = Fá maior (1 bemol); 1 = Sol maior…
-  difficulty: 2,
-  instruments: ['organ', 'piano'],
-  sections: [                // linhas/estrofes para praticar em partes (em batidas)
-    { id: 'l1', label: '1ª linha', startBeat: 0, endBeat: 12 },
-  ],
-  ...fourVoices({
-    soprano: 'A4/h:4 G4/q:3 F4 | C5/w',
-    alto:    'F4/h:2 E4/q:1 C4 | F4/w',
-    tenor:   'C4/h D4/q A3 | A3/w',
-    bass:    'F3/h C3/q F3 | F2/w',
-  }),
-}
+...fourVoices({
+  soprano: 'A4/h:4 G4/q:3 F4 | C5/w',
+  alto:    'F4/h:2 E4/q:1 C4 | F4/w',
+  tenor:   'C4/h D4/q A3 | A3/w',
+  bass:    'F3/h C3/q F3 | F2/w',
+})
 ```
-
-Ao cadastrar o `hymnNumber`, o hino aparece destacado na grade do Hinário e
-abre com partitura, notas caindo e escuta do teclado. Os títulos dos 480 hinos
-podem ser preenchidos em `hymnTitles` (mesmo arquivo).
 
 A notação de cada voz:
 
