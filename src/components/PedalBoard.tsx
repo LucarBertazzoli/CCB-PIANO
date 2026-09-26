@@ -1,10 +1,11 @@
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { isBlackKey, noteName, type Notation } from '@/music/theory';
 
 import { usePalette, useType, type Palette } from '@/theme';
 
+import { KeyPad } from './KeyPad';
 import type { KeyHint, KeyState } from './PianoKeyboard';
 
 interface Props {
@@ -78,10 +79,10 @@ export const PedalBoard = memo(function PedalBoard({
         const hint = hints?.get(midi);
         const c = pedalColor(palette, black, hint?.state);
         return (
-          <Pressable
+          <KeyPad
             key={midi}
-            onPressIn={() => onNoteOn?.(midi)}
-            onPressOut={() => onNoteOff?.(midi)}
+            onDown={() => onNoteOn?.(midi)}
+            onUp={() => onNoteOff?.(midi)}
             accessibilityLabel={`Pedal ${noteName(midi, notation, { withOctave: true, preferFlats })}`}
             style={[
               styles.pedal,
@@ -99,7 +100,7 @@ export const PedalBoard = memo(function PedalBoard({
                 {noteName(midi, notation, { withOctave: midi % 12 === 0, preferFlats })}
               </Text>
             ) : null}
-          </Pressable>
+          </KeyPad>
         );
       })}
     </View>

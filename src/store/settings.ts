@@ -64,6 +64,8 @@ export interface SettingsState {
   fontChoice: FontChoice;
   /** Últimos hinos abertos (ids), o mais recente primeiro. */
   recent: string[];
+  /** Já viu os cartões de apresentação (primeira vez que abre o app). */
+  onboarded: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
@@ -72,8 +74,8 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   noteLabels: 'name',
   showKeyLabels: true,
   instrument: 'organ',
-  inputSource: 'touch',
-  micSensitivity: 0.01,
+  inputSource: 'mic',
+  micSensitivity: 0.004,
   micLatency: 0.12,
   fallSpeed: 150,
   volume: 0.8,
@@ -81,13 +83,14 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   metronome: false,
   viewMode: 'page',
   showKeyboard: true,
-  keySize: 'medium',
+  keySize: 'small',
   organManuals: 'two',
   showPedalboard: true,
   colorMode: 'mono',
   colors: DEFAULT_COLORS,
   fontChoice: 'serif',
   recent: [],
+  onboarded: false,
 };
 
 export const useSettings = create<SettingsState>()(
@@ -96,13 +99,16 @@ export const useSettings = create<SettingsState>()(
     {
       name: 'ccb-piano-settings',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 5,
+      version: 6,
       // Mantém as escolhas de quem já usa o app e completa os campos novos.
       // Fonte e destaque que ainda estavam no padrão antigo passam ao padrão
       // novo (serifada e #D81B60). Versões muito antigas voltam aos padrões.
       migrate: (state, version) => {
         if (version < 3) return { ...DEFAULTS } as SettingsState;
         const prev = { ...DEFAULTS, ...(state as Partial<SettingsState>) };
+        // Volume e tamanho das teclas agora são fixos (médio e pequenas).
+        prev.volume = DEFAULTS.volume;
+        prev.keySize = DEFAULTS.keySize;
         if (version < 5) {
           if (prev.fontChoice === 'verdana') prev.fontChoice = 'serif';
           if (prev.colors.accent === '#FF5A1F') prev.colors = { ...prev.colors, accent: DEFAULT_COLORS.accent };

@@ -1,8 +1,9 @@
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { noteName, type Notation } from '@/music/theory';
 import { Icon } from './Icon';
+import { KeyPad } from './KeyPad';
 import { usePalette, useType, type Palette, type TypeFace } from '@/theme';
 
 import type { KeyboardLayout, KeyRect } from './keyboard-layout';
@@ -84,9 +85,9 @@ const Key = memo(function Key({
   const fontSize = Math.max(8, Math.min(12, rect.width * 0.36));
   const mark = state === 'correct' ? 'check' : state === 'wrong' ? 'close' : null;
   return (
-    <Pressable
-      onPressIn={() => onNoteOn?.(rect.midi)}
-      onPressOut={() => onNoteOff?.(rect.midi)}
+    <KeyPad
+      onDown={() => onNoteOn?.(rect.midi)}
+      onUp={() => onNoteOff?.(rect.midi)}
       style={[
         styles.key,
         rect.black ? styles.black : styles.white,
@@ -111,7 +112,7 @@ const Key = memo(function Key({
           {label}
         </Text>
       ) : null}
-    </Pressable>
+    </KeyPad>
   );
 });
 

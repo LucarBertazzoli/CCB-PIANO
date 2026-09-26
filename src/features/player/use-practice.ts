@@ -174,7 +174,7 @@ export function usePractice({
   // Depois de arrastar a linha do tempo, o próximo "tocar" faz uma contagem antes do ponto.
   const pendingPreRoll = useRef(false);
   // Mudou um ajuste com o hino pausado no meio: a nova sessão continua do mesmo compasso.
-  const carry = useRef<{ beat: number; sectionId?: string } | null>(null);
+  const carry = useRef<{ beat: number; sectionId?: string; playing: boolean } | null>(null);
   useEffect(() => {
     const c = carry.current;
     carry.current = null;
@@ -185,15 +185,23 @@ export function usePractice({
         pendingPreRoll.current = true;
         time.set(session.time);
       }
+      // Trocou órgão/piano (ou outro ajuste) tocando: continua tocando dali.
+      if (c.playing) {
+        synth.unlock();
+        if (session.time > 0) session.seek(session.time, Math.min(leadIn, 1.5));
+        pendingPreRoll.current = false;
+        time.set(session.time);
+        session.start();
+      }
     }
     return () => {
-      const resumable = session.status === 'paused' || session.status === 'ready';
-      carry.current =
-        resumable && session.time > 0
-          ? { beat: session.time / timeline.secondsPerBeat + timeline.originBeat, sectionId }
-          : null;
+      const playing = session.status === 'playing' || session.status === 'waiting';
+      const resumable = playing || session.status === 'paused' || session.status === 'ready';
+      carry.current = resumable
+        ? { beat: Math.max(0, session.time) / timeline.secondsPerBeat + timeline.originBeat, sectionId, playing }
+        : null;
     };
-  }, [session, timeline, sectionId, time]);
+  }, [session, timeline, sectionId, time, leadIn]);
 
   // Entradas do aluno.
   useEffect(() => {

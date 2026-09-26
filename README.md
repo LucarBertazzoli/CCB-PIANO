@@ -29,6 +29,14 @@ CCB), com modo colorido opcional. São só duas telas:
      pedaleira, acerto, erro, fundo e papel) escolhida em amostras ou por
      código (#RRGGBB).
 
+**Padrões na primeira vez** (cada pessoa pode mudar; fica salvo no navegador
+dela): cartões de apresentação, partitura, órgão com manual superior (mão
+direita), inferior (mão esquerda) e pedaleira, o aluno tocando as duas mãos e
+a pedaleira, modo espera, microfone com sensibilidade alta, teclas pequenas,
+volume médio, fonte serifada e destaque #D81B60. No canto superior direito da
+tela de tocar ficam dois interruptores: **Partitura | Notas** e **Órgão | Piano**.
+No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
+
 ## O que já funciona
 
 - **Hinário completo**: os 480 hinos e 6 coros do Hinário nº 5, com título,

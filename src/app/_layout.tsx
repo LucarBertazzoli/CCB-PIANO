@@ -5,12 +5,13 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { DarkTheme, ThemeProvider } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { synth } from '@/audio/synth';
+import { Onboarding } from '@/features/onboarding/Onboarding';
 import { useSettings } from '@/store/settings';
 
 const theme = {
@@ -27,6 +28,13 @@ const ANDROID_SANS = {
 export default function RootLayout() {
   const instrument = useSettings((s) => s.instrument);
   const volume = useSettings((s) => s.volume);
+  const onboarded = useSettings((s) => s.onboarded);
+  // Espera ler os ajustes salvos antes de decidir mostrar a apresentação.
+  const hydrated = useSyncExternalStore(
+    (cb) => useSettings.persist.onFinishHydration(cb),
+    () => useSettings.persist.hasHydrated(),
+    () => false,
+  );
   const background = useSettings((s) => (s.colorMode === 'color' ? s.colors.background : '#000000'));
 
   // Fontes opcionais (serifada e OpenDyslexic). Verdana vem do sistema, então
@@ -60,6 +68,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="tocar/[songId]" options={{ gestureEnabled: false }} />
           </Stack>
+          {hydrated && !onboarded ? <Onboarding /> : null}
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

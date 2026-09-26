@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -54,6 +54,24 @@ const APP_YOU = [
   { value: 'app' as const, label: 'App' },
   { value: 'you' as const, label: 'Você' },
 ];
+/**
+ * Teclado do computador (como um piano): a fileira Q W E R… toca o manual
+ * superior a partir do Dó3; a fileira Z X C V… toca o inferior a partir do Dó2.
+ * As teclas de número e S D G H J são as teclas pretas.
+ */
+const COMPUTER_KEYS: Record<string, { midi: number; row: 'upper' | 'lower' }> = {
+  ...Object.fromEntries(
+    ['KeyQ', 'Digit2', 'KeyW', 'Digit3', 'KeyE', 'KeyR', 'Digit5', 'KeyT', 'Digit6', 'KeyY', 'Digit7', 'KeyU', 'KeyI', 'Digit9', 'KeyO', 'Digit0', 'KeyP'].map(
+      (code, i) => [code, { midi: 60 + i, row: 'upper' as const }],
+    ),
+  ),
+  ...Object.fromEntries(
+    ['KeyZ', 'KeyS', 'KeyX', 'KeyD', 'KeyC', 'KeyV', 'KeyG', 'KeyB', 'KeyH', 'KeyN', 'KeyJ', 'KeyM', 'Comma'].map((code, i) => [
+      code,
+      { midi: 48 + i, row: 'lower' as const },
+    ]),
+  ),
+};
 const UNIT_NAME: Record<string, string> = { q: 'semínimas', e: 'colcheias', 'q.': 'semínimas pontuadas', h: 'mínimas' };
 
 /**
@@ -146,6 +164,37 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     });
     return { main: make('main'), upper: make('upper'), lower: make('lower'), pedal: make('pedal') };
   }, []);
+
+  // Teclado do computador (navegador).
+  const twoManualsNow = organ && settings.organManuals === 'two';
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const held = new Map<string, { midi: number; target: KeyTarget }>();
+    const typing = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    };
+    const onDown = (e: KeyboardEvent) => {
+      const k = COMPUTER_KEYS[e.code];
+      if (!k || e.repeat || e.metaKey || e.ctrlKey || e.altKey || typing(e) || held.has(e.code)) return;
+      const target: KeyTarget = twoManualsNow ? k.row : 'main';
+      held.set(e.code, { midi: k.midi, target });
+      handlers[target].on(k.midi);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      const h = held.get(e.code);
+      if (!h) return;
+      held.delete(e.code);
+      handlers[h.target].off(h.midi);
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      for (const h of held.values()) handlers[h.target].off(h.midi);
+    };
+  }, [handlers, twoManualsNow]);
 
   // ------------------------------------------------------------- teclados
   const usableWidth = width - insets.left - insets.right;
@@ -421,35 +470,13 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
                 onChange={(v) => settings.set({ organManuals: v as 'one' | 'two' })}
               />
             </Row>
-            <Row label="Pedaleira na tela">
+            <Row label="Pedaleira na tela" last>
               <Toggle value={settings.showPedalboard} onChange={(v) => settings.set({ showPedalboard: v })} label="Pedaleira na tela" />
             </Row>
           </>
-        ) : null}
-        <Row label="Tamanho das teclas" hint="Teclas menores mostram mais oitavas">
-          <Segmented
-            compact
-            options={[
-              { value: 'large', label: 'Grandes' },
-              { value: 'medium', label: 'Médias' },
-              { value: 'small', label: 'Pequenas' },
-            ]}
-            value={settings.keySize}
-            onChange={(v) => settings.set({ keySize: v as 'large' | 'medium' | 'small' })}
-          />
-        </Row>
-        <Row label="Volume" last>
-          <Segmented
-            compact
-            options={[
-              { value: 0.45, label: 'Baixo' },
-              { value: 0.8, label: 'Médio' },
-              { value: 1, label: 'Alto' },
-            ]}
-            value={settings.volume}
-            onChange={(v) => settings.set({ volume: v })}
-          />
-        </Row>
+        ) : (
+          <Row label="Piano" hint="Um teclado só, com as quatro vozes" last />
+        )}
       </Glass>
     </View>
   );
@@ -460,7 +487,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
       <View style={s.cards}>
         {(
           [
-            { value: 'touch', title: 'Tela', subtitle: 'Toque nas teclas da tela', icon: 'touch' },
+            { value: 'touch', title: 'Tela', subtitle: 'Toque nas teclas da tela ou use o teclado do computador', icon: 'touch' },
             { value: 'midi', title: 'Teclado MIDI', subtitle: 'Ligado por cabo (Chrome ou Edge)', icon: 'cable' },
             { value: 'mic', title: 'Microfone', subtitle: 'Toque no seu instrumento de verdade', icon: 'mic' },
           ] as { value: InputSourceKind; title: string; subtitle: string; icon: IconName }[]
@@ -540,6 +567,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
             <View style={s.floatingTrack}>
               <Scrubber thin onPaper={onPaper} measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </View>
+            <ModeSwitches />
           </View>
         ) : null}
 
@@ -616,6 +644,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
               </View>
               <Scrubber measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </Glass>
+            <ModeSwitches stacked />
             <RoundButton icon="restart" onPress={() => p.seek(0)} accessibilityLabel="Voltar ao começo" />
             <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
           </View>
@@ -647,6 +676,38 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           </View>
         </Animated.View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Os dois interruptores do canto superior direito: como ver a música
+ * (Partitura ou Notas caindo) e qual instrumento (Órgão ou Piano).
+ */
+export function ModeSwitches({ stacked }: { stacked?: boolean }) {
+  const viewMode = useSettings((st) => st.viewMode);
+  const instrument = useSettings((st) => st.instrument);
+  const set = useSettings((st) => st.set);
+  return (
+    <View style={stacked ? s.switchesStacked : s.switches}>
+      <Segmented
+        compact
+        options={[
+          { value: 'page', label: 'Partitura' },
+          { value: 'falling', label: 'Notas' },
+        ]}
+        value={viewMode}
+        onChange={(v) => set({ viewMode: v as 'page' | 'falling' })}
+      />
+      <Segmented
+        compact
+        options={[
+          { value: 'organ', label: 'Órgão' },
+          { value: 'piano', label: 'Piano' },
+        ]}
+        value={instrument}
+        onChange={(v) => set({ instrument: v as 'organ' | 'piano' })}
+      />
     </View>
   );
 }
@@ -697,6 +758,8 @@ const s = StyleSheet.create({
     gap: 12,
   },
   floatingTrack: { flex: 1 },
+  switches: { flexDirection: 'row', gap: 8 },
+  switchesStacked: { gap: 4, alignItems: 'stretch' },
   waitBadge: {
     position: 'absolute',
     bottom: 10,
