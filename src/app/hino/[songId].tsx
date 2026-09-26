@@ -112,10 +112,23 @@ export default function HymnDetailScreen() {
           <Chip label="Mão direita" selected={hands === 'right' && !voices.length} onPress={() => { setVoices([]); setHands('right'); }} />
           <Chip label="Mão esquerda" selected={hands === 'left' && !voices.length} onPress={() => { setVoices([]); setHands('left'); }} />
           <Chip label="Duas mãos" selected={hands === 'both' && !voices.length} onPress={() => { setVoices([]); setHands('both'); }} />
+          {instrument === 'organ' ? (
+            <Chip
+              label="Mãos + pedaleira"
+              selected={voices.length === 5}
+              onPress={() => {
+                setVoices(['soprano', 'alto', 'tenor', 'bass', 'pedal']);
+                setHands('both');
+              }}
+            />
+          ) : null}
         </View>
         {hasVoices ? (
           <>
-            <Text style={styles.hint}>Ou escolha as vozes (as outras tocam junto com você):</Text>
+            <Text style={styles.hint}>
+              Ou escolha as vozes (as outras tocam junto com você).
+              {instrument === 'organ' ? ' No órgão a pedaleira toca sozinha, a menos que você a escolha.' : ''}
+            </Text>
             <View style={[styles.row, { flexWrap: 'wrap' }]}>
               {VOICES.filter((v) => v.value !== 'pedal' || instrument === 'organ').map((v) => (
                 <Chip key={v.value} label={v.label} selected={voices.includes(v.value)} onPress={() => toggleVoice(v.value)} />

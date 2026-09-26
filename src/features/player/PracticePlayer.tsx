@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import type { PracticeMode } from '@/engine/practice-session';
 import type { ScoreSummary } from '@/engine/scoring';
 import type { TimedNote } from '@/engine/timeline';
 import { inputHub } from '@/input/input-hub';
+import type { KeyTarget } from '@/input/types';
 import { noteName } from '@/music/theory';
 import { useSettings, type ViewMode } from '@/store/settings';
 import { colors, radius } from '@/theme';
@@ -144,23 +145,39 @@ export function PracticePlayer(props: PracticePlayerProps) {
     if (p.score) onFinished?.(p.score, finishedMode);
   }, [p.score, onFinished, finishedMode]);
 
-  const noteOn = useCallback((midi: number) => {
-    inputHub.emit({ type: 'on', midi, velocity: 0.8, source: 'touch' });
-  }, []);
-  const noteOff = useCallback((midi: number) => {
-    inputHub.emit({ type: 'off', midi, velocity: 0, source: 'touch' });
+  // Um par de funções por teclado da tela, para saber onde o aluno tocou.
+  const handlers = useMemo(() => {
+    const make = (target: KeyTarget) => ({
+      on: (midi: number) => inputHub.emit({ type: 'on', midi, velocity: 0.8, source: 'touch', target }),
+      off: (midi: number) => inputHub.emit({ type: 'off', midi, velocity: 0, source: 'touch', target }),
+    });
+    return { main: make('main'), upper: make('upper'), lower: make('lower'), pedal: make('pedal') };
   }, []);
 
   const resultOf = useCallback((id: string) => p.session.resultOf(id), [p.session]);
 
   const blockedReason = p.score ? (props.continueBlockedReason?.(p.score) ?? null) : null;
 
-  const waitingNames = p.status === 'waiting'
-    ? [...p.hints.entries()]
-        .filter(([, h]) => h.state === 'expected-left' || h.state === 'expected-right')
-        .map(([m]) => noteName(m, settings.notation, { preferFlats: song.keySignature < 0 }))
-        .join(' + ')
-    : '';
+  // Aviso do modo Aprender: quais notas tocar e em qual teclado.
+  const names = (map: ReadonlyMap<number, { state: string }>, state: string) =>
+    [...map.entries()]
+      .filter(([, h]) => h.state === state)
+      .sort((a, b) => a[0] - b[0])
+      .map(([m]) => noteName(m, settings.notation, { preferFlats }))
+      .join(' + ');
+  const waitingNames =
+    p.status !== 'waiting'
+      ? ''
+      : isOrgan
+        ? [
+            ['Superior', names(p.hintSets.right, 'expected-right')],
+            ['Inferior', names(p.hintSets.left, 'expected-left')],
+            ['Pedal', names(p.hintSets.pedal, 'expected-pedal')],
+          ]
+            .filter(([, n]) => n)
+            .map(([k, n]) => `${k}: ${n}`)
+            .join('  •  ')
+        : [names(p.hintSets.right, 'expected-right'), names(p.hintSets.left, 'expected-left')].filter(Boolean).join('  •  ');
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
@@ -270,7 +287,7 @@ export function PracticePlayer(props: PracticePlayerProps) {
         ) : null}
 
         {p.status === 'waiting' && waitingNames ? (
-          <View style={styles.waitBadge} pointerEvents="none">
+          <View style={[styles.waitBadge, viewMode === 'page' ? { top: 6 } : { bottom: 12 }]} pointerEvents="none">
             <Text style={styles.waitText}>Toque {waitingNames}</Text>
           </View>
         ) : null}
@@ -280,56 +297,6 @@ export function PracticePlayer(props: PracticePlayerProps) {
             <Text style={styles.errorText}>{inputError}</Text>
           </View>
         ) : null}
-
-        {panelOpen && (
-          <View style={styles.panel}>
-            {!locked && (
-              <View style={styles.panelRow}>
-                <Text style={styles.panelLabel}>Mãos</Text>
-                {(['right', 'left', 'both'] as HandSelection[]).map((h) => (
-                  <Chip key={h} compact label={HAND_LABEL[h]} selected={hands === h} onPress={() => setHands(h)} />
-                ))}
-              </View>
-            )}
-            <View style={styles.panelRow}>
-              <Text style={styles.panelLabel}>Andamento</Text>
-              {TEMPOS.map((t) => (
-                <Chip key={t} compact label={`${Math.round(t * 100)}%`} selected={tempoFactor === t} onPress={() => setTempoFactor(t)} />
-              ))}
-            </View>
-            <View style={styles.panelRow}>
-              <Text style={styles.panelLabel}>Som</Text>
-              <Chip compact label="Piano" selected={settings.instrument === 'piano'} onPress={() => settings.set({ instrument: 'piano' })} />
-              <Chip compact label="Órgão" selected={settings.instrument === 'organ'} onPress={() => settings.set({ instrument: 'organ' })} />
-            </View>
-            <View style={styles.panelRow}>
-              <Text style={styles.panelLabel}>Metrônomo</Text>
-              <Switch value={settings.metronome} onValueChange={(v) => settings.set({ metronome: v })} />
-              <Text style={styles.panelLabel}>Acompanhamento</Text>
-              <Switch value={settings.playAccompaniment} onValueChange={(v) => settings.set({ playAccompaniment: v })} />
-            </View>
-            <View style={styles.panelRow}>
-              <Text style={styles.panelLabel}>Teclas</Text>
-              <Chip compact label="Grandes" selected={settings.keySize === 'large'} onPress={() => settings.set({ keySize: 'large' })} />
-              <Chip compact label="Médias" selected={settings.keySize === 'medium'} onPress={() => settings.set({ keySize: 'medium' })} />
-              <Chip compact label="Pequenas (mais teclas)" selected={settings.keySize === 'small'} onPress={() => settings.set({ keySize: 'small' })} />
-            </View>
-            {isOrgan ? (
-              <View style={styles.panelRow}>
-                <Text style={styles.panelLabel}>Órgão</Text>
-                <Chip compact label="Dois manuais" selected={settings.organManuals === 'two'} onPress={() => settings.set({ organManuals: 'two' })} />
-                <Chip compact label="Um teclado (cores)" selected={settings.organManuals === 'one'} onPress={() => settings.set({ organManuals: 'one' })} />
-                <Text style={styles.panelLabel}>Pedaleira</Text>
-                <Switch value={settings.showPedalboard} onValueChange={(v) => settings.set({ showPedalboard: v })} />
-              </View>
-            ) : null}
-            <View style={styles.panelRow}>
-              <Text style={styles.panelLabel}>Teclado na tela</Text>
-              <Switch value={settings.showKeyboard} onValueChange={(v) => settings.set({ showKeyboard: v })} />
-              <Text style={styles.panelHint}>Esconda para ver mais partitura (usando microfone ou MIDI).</Text>
-            </View>
-          </View>
-        )}
 
         {(p.status === 'ready' || p.status === 'paused') && (
           <View style={styles.overlay}>
@@ -346,6 +313,22 @@ export function PracticePlayer(props: PracticePlayerProps) {
                       ? 'Toque cada nota quando ela chegar ao teclado.'
                       : 'Veja e ouça como a música é tocada.'))}
             </Text>
+            {p.status === 'ready' && keyboardVisible ? (
+              <View style={styles.legend}>
+                <View style={[styles.legendDot, { backgroundColor: colors.rightHand }]} />
+                <Text style={styles.legendText}>{isOrgan ? 'Superior (mão direita)' : 'Mão direita'}</Text>
+                <View style={[styles.legendDot, { backgroundColor: colors.leftHand }]} />
+                <Text style={styles.legendText}>{isOrgan ? 'Inferior (mão esquerda)' : 'Mão esquerda'}</Text>
+                {isOrgan ? (
+                  <>
+                    <View style={[styles.legendDot, { backgroundColor: '#00897B' }]} />
+                    <Text style={styles.legendText}>Pedaleira</Text>
+                  </>
+                ) : null}
+                <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+                <Text style={styles.legendText}>Acertou</Text>
+              </View>
+            ) : null}
             <View style={styles.row}>
               <Button title={p.status === 'ready' ? 'Começar' : 'Continuar'} onPress={p.start} />
               {p.status === 'paused' && <Button title="Recomeçar" variant="secondary" onPress={() => { p.restart(); p.start(); }} />}
@@ -391,8 +374,8 @@ export function PracticePlayer(props: PracticePlayerProps) {
                 preferFlats={preferFlats}
                 tag="SUPERIOR • mão direita"
                 tagColor={colors.rightHand}
-                onNoteOn={noteOn}
-                onNoteOff={noteOff}
+                onNoteOn={handlers.upper.on}
+                onNoteOff={handlers.upper.off}
               />
               <View style={{ height: 2, backgroundColor: '#000' }} />
               <PianoKeyboard
@@ -404,8 +387,8 @@ export function PracticePlayer(props: PracticePlayerProps) {
                 preferFlats={preferFlats}
                 tag="INFERIOR • mão esquerda"
                 tagColor={colors.leftHand}
-                onNoteOn={noteOn}
-                onNoteOff={noteOff}
+                onNoteOn={handlers.lower.on}
+                onNoteOff={handlers.lower.off}
               />
             </>
           ) : (
@@ -418,8 +401,8 @@ export function PracticePlayer(props: PracticePlayerProps) {
               preferFlats={preferFlats}
               tag={isOrgan ? 'AZUL: superior • ROXO: inferior' : undefined}
               tagColor="#2A3550"
-              onNoteOn={noteOn}
-              onNoteOff={noteOff}
+              onNoteOn={handlers.main.on}
+              onNoteOff={handlers.main.off}
             />
           )}
           {pedalVisible ? (
@@ -431,12 +414,65 @@ export function PracticePlayer(props: PracticePlayerProps) {
               hints={p.hintSets.pedal}
               notation={settings.notation}
               preferFlats={preferFlats}
-              onNoteOn={noteOn}
-              onNoteOff={noteOff}
+              onNoteOn={handlers.pedal.on}
+              onNoteOff={handlers.pedal.off}
             />
           ) : null}
         </View>
       ) : null}
+      {/* Painel de opções: por cima de tudo (inclusive do teclado). */}
+        {panelOpen && (
+          <View style={[styles.panel, { top: insets.top + topBar + 4, maxHeight: height - insets.top - topBar - 12 }]}>
+            <ScrollView contentContainerStyle={{ gap: 10 }}>
+            {!locked && (
+              <View style={styles.panelRow}>
+                <Text style={styles.panelLabel}>Mãos</Text>
+                {(['right', 'left', 'both'] as HandSelection[]).map((h) => (
+                  <Chip key={h} compact label={HAND_LABEL[h]} selected={hands === h} onPress={() => setHands(h)} />
+                ))}
+              </View>
+            )}
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Andamento</Text>
+              {TEMPOS.map((t) => (
+                <Chip key={t} compact label={`${Math.round(t * 100)}%`} selected={tempoFactor === t} onPress={() => setTempoFactor(t)} />
+              ))}
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Som</Text>
+              <Chip compact label="Piano" selected={settings.instrument === 'piano'} onPress={() => settings.set({ instrument: 'piano' })} />
+              <Chip compact label="Órgão" selected={settings.instrument === 'organ'} onPress={() => settings.set({ instrument: 'organ' })} />
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Metrônomo</Text>
+              <Switch value={settings.metronome} onValueChange={(v) => settings.set({ metronome: v })} />
+              <Text style={styles.panelLabel}>Acompanhamento</Text>
+              <Switch value={settings.playAccompaniment} onValueChange={(v) => settings.set({ playAccompaniment: v })} />
+            </View>
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Teclas</Text>
+              <Chip compact label="Grandes" selected={settings.keySize === 'large'} onPress={() => settings.set({ keySize: 'large' })} />
+              <Chip compact label="Médias" selected={settings.keySize === 'medium'} onPress={() => settings.set({ keySize: 'medium' })} />
+              <Chip compact label="Pequenas (mais teclas)" selected={settings.keySize === 'small'} onPress={() => settings.set({ keySize: 'small' })} />
+            </View>
+            {isOrgan ? (
+              <View style={styles.panelRow}>
+                <Text style={styles.panelLabel}>Órgão</Text>
+                <Chip compact label="Dois manuais" selected={settings.organManuals === 'two'} onPress={() => settings.set({ organManuals: 'two' })} />
+                <Chip compact label="Um teclado (cores)" selected={settings.organManuals === 'one'} onPress={() => settings.set({ organManuals: 'one' })} />
+                <Text style={styles.panelLabel}>Pedaleira</Text>
+                <Switch value={settings.showPedalboard} onValueChange={(v) => settings.set({ showPedalboard: v })} />
+              </View>
+            ) : null}
+            <View style={styles.panelRow}>
+              <Text style={styles.panelLabel}>Teclado na tela</Text>
+              <Switch value={settings.showKeyboard} onValueChange={(v) => settings.set({ showKeyboard: v })} />
+              <Text style={styles.panelHint}>Esconda para ver mais partitura (usando microfone ou MIDI).</Text>
+            </View>
+            </ScrollView>
+          </View>
+        )}
+
     </View>
   );
 }
@@ -474,16 +510,15 @@ const styles = StyleSheet.create({
   segmentTextOn: { color: '#fff' },
   panel: {
     position: 'absolute',
-    top: 6,
     right: 8,
-    zIndex: 20,
+    zIndex: 50,
+    elevation: 20,
     backgroundColor: colors.bgElevated,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 12,
-    gap: 10,
-    maxWidth: 560,
+    maxWidth: 580,
   },
   panelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   panelLabel: { color: colors.text, fontWeight: '700', fontSize: 13, minWidth: 70 },
@@ -499,9 +534,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
   },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendText: { color: colors.text, fontSize: 12, marginRight: 8 },
   waitBadge: {
     position: 'absolute',
-    bottom: 12,
+    zIndex: 5,
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 14,

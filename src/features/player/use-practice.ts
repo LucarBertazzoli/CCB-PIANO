@@ -8,6 +8,7 @@ import { PracticeSession, type PracticeMode, type SessionStatus } from '@/engine
 import type { ScoreSummary } from '@/engine/scoring';
 import { buildTimeline } from '@/engine/timeline';
 import { inputHub } from '@/input/input-hub';
+import type { KeyTarget } from '@/input/types';
 import type { KeyHint } from '@/components/PianoKeyboard';
 import { useSettings } from '@/store/settings';
 
@@ -92,8 +93,11 @@ export function usePractice({
   const [progress, setProgress] = useState(0);
   const [score, setScore] = useState<ScoreSummary | null>(null);
   const [expectedKey, setExpectedKey] = useState('');
-  const [pressed, setPressed] = useState<ReadonlySet<number>>(new Set());
-  const [flashes, setFlashes] = useState<ReadonlyMap<number, 'correct' | 'wrong'>>(new Map());
+  // Teclas pressionadas e piscadas, com o teclado de origem ("upper:67", "any:60"…),
+  // para acender só o teclado onde o aluno tocou.
+  const [pressed, setPressed] = useState<ReadonlySet<string>>(new Set());
+  const [flashes, setFlashes] = useState<ReadonlyMap<string, 'correct' | 'wrong'>>(new Map());
+  const lastTarget = useRef<KeyTarget | 'any'>('any');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const feedbackId = useRef(0);
 
@@ -116,12 +120,13 @@ export function usePractice({
 
   useEffect(() => {
     const flash = (midi: number, kind: 'correct' | 'wrong') => {
-      setFlashes((prev) => new Map(prev).set(midi, kind));
+      const key = `${lastTarget.current}:${midi}`;
+      setFlashes((prev) => new Map(prev).set(key, kind));
       setTimeout(() => {
         setFlashes((prev) => {
-          if (prev.get(midi) !== kind) return prev;
+          if (prev.get(key) !== kind) return prev;
           const next = new Map(prev);
-          next.delete(midi);
+          next.delete(key);
           return next;
         });
       }, FLASH_MS);
@@ -166,14 +171,21 @@ export function usePractice({
   // Entradas do aluno.
   useEffect(() => {
     return inputHub.subscribe((e) => {
+      const key = `${e.target ?? 'any'}:${e.midi}`;
       if (e.type === 'on') {
+        lastTarget.current = e.target ?? 'any';
         // O microfone ouve o instrumento real; não precisa tocar som de novo.
         if (e.source !== 'mic') synth.noteOn(e.midi, e.velocity);
         session.noteOn(e.midi);
-      } else if (e.source !== 'mic') {
-        synth.noteOff(e.midi);
+        setPressed((prev) => new Set(prev).add(key));
+      } else {
+        if (e.source !== 'mic') synth.noteOff(e.midi);
+        setPressed((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
       }
-      setPressed(new Set(inputHub.heldNotes()));
     });
   }, [session]);
 
@@ -236,9 +248,23 @@ export function usePractice({
         if (!manual.has(n.midi) || n.hand === 'right') manual.set(n.midi, hint);
       }
     }
-    for (const map of [right, left, pedal, manual]) {
-      for (const midi of pressed) if (!map.has(midi)) map.set(midi, { state: 'pressed' });
-      for (const [midi, kind] of flashes) map.set(midi, { state: kind });
+    // Toque na tela: só o teclado tocado; MIDI/microfone ("any"): todos.
+    const targets: [Map<number, KeyHint>, KeyTarget][] = [
+      [right, 'upper'],
+      [left, 'lower'],
+      [pedal, 'pedal'],
+      [manual, 'main'],
+    ];
+    for (const [map, target] of targets) {
+      for (const key of pressed) {
+        const [t, m] = key.split(':');
+        const midi = Number(m);
+        if ((t === target || t === 'any') && !map.has(midi)) map.set(midi, { state: 'pressed' });
+      }
+      for (const [key, kind] of flashes) {
+        const [t, m] = key.split(':');
+        if (t === target || t === 'any') map.set(Number(m), { state: kind });
+      }
     }
     return { manual, right, left, pedal };
   }, [expectedKey, pressed, flashes, session]);

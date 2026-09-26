@@ -1,11 +1,16 @@
 export type InputSourceKind = 'touch' | 'midi' | 'mic';
 
+/** Em qual teclado da tela a nota foi tocada (para acender só ele). */
+export type KeyTarget = 'main' | 'upper' | 'lower' | 'pedal';
+
 export interface NoteInputEvent {
   type: 'on' | 'off';
   midi: number;
   /** 0..1 */
   velocity: number;
   source: InputSourceKind;
+  /** Teclado da tela que originou o toque (ausente para MIDI/microfone). */
+  target?: KeyTarget;
 }
 
 export type NoteEmitter = (e: NoteInputEvent) => void;

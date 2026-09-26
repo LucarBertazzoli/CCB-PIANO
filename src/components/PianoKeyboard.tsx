@@ -38,11 +38,11 @@ interface Props {
 function keyColor(black: boolean, state: KeyState): string {
   switch (state) {
     case 'expected-right':
-      return black ? '#1F7FC4' : colors.rightHandLight;
+      return black ? '#1976D2' : '#5AB4FF';
     case 'expected-left':
-      return black ? '#7D3FCC' : colors.leftHandLight;
+      return black ? '#7B2FD0' : '#B07CFF';
     case 'expected-pedal':
-      return black ? '#00796B' : '#7FD8C8';
+      return black ? '#00796B' : '#4DD0B8';
     case 'correct':
       return colors.keyCorrect;
     case 'wrong':
