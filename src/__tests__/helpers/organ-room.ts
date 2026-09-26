@@ -13,6 +13,8 @@ export const STOPS = {
   principal: [1, 0.55, 0.35, 0.22, 0.15, 0.1, 0.07, 0.05],
   /** Flauta 8' (poucos harmônicos pares) */
   flauta: [1, 0.12, 0.28, 0.04, 0.08],
+  /** Timbre de piano (segundo harmônico forte, como as cordas) */
+  piano: [1, 0.8, 0.5, 0.35, 0.25, 0.18, 0.12, 0.08],
   /** Principal 8' + 4' + 2' (cheio) */
   cheio: [1, 0.9, 0.5, 0.7, 0.3, 0.35, 0.15, 0.3],
 } as const;

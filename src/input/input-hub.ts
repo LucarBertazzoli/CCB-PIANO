@@ -16,6 +16,7 @@ class InputHub {
   private _error: string | null = null;
   private statusListeners = new Set<() => void>();
   private guide: GuideNote[] | null = null;
+  private context: number[] = [];
 
   get kind(): InputSourceKind {
     return this._kind;
@@ -54,9 +55,10 @@ class InputHub {
    * Notas que o aluno deve tocar agora (o microfone confere cada uma, o que
    * permite reconhecer acordes). `null` quando nenhum hino está tocando.
    */
-  setGuide(notes: GuideNote[] | null): void {
+  setGuide(notes: GuideNote[] | null, context: number[] = []): void {
     this.guide = notes;
-    this.external?.setGuide?.(notes);
+    this.context = context;
+    this.external?.setGuide?.(notes, context);
   }
 
   /** Liga a fonte escolhida. O teclado na tela funciona sempre. */
@@ -71,7 +73,7 @@ class InputHub {
         this._error = reason;
       } else {
         try {
-          source.setGuide?.(this.guide);
+          source.setGuide?.(this.guide, this.context);
           await source.start(this.emit);
           this.external = source;
         } catch (err) {

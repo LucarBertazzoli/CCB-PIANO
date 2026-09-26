@@ -66,6 +66,8 @@ export interface SettingsState {
   recent: string[];
   /** Já viu os cartões de apresentação (primeira vez que abre o app). */
   onboarded: boolean;
+  /** Já fechou o balão com a dica de reconhecimento das notas. */
+  tipInputSeen: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
@@ -91,6 +93,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   fontChoice: 'serif',
   recent: [],
   onboarded: false,
+  tipInputSeen: false,
 };
 
 export const useSettings = create<SettingsState>()(

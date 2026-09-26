@@ -9,6 +9,7 @@ export class MicInput implements InputSource {
   private node: ScriptProcessorNode | null = null;
   processor: PitchProcessor | null = null;
   private guide: GuideNote[] | null = null;
+  private context: number[] = [];
 
   constructor(private sensitivity = 0.01) {}
 
@@ -30,7 +31,7 @@ export class MicInput implements InputSource {
     this.node = this.ctx.createScriptProcessor(MIC_FRAME_SIZE / 2, 1, 1);
     this.processor = new PitchProcessor(this.ctx.sampleRate, emit);
     this.processor.setSensitivity(this.sensitivity);
-    this.processor.setGuide(this.guide);
+    this.processor.setGuide(this.guide, this.context);
     this.node.onaudioprocess = (e) => this.processor?.push(e.inputBuffer.getChannelData(0));
     source.connect(this.node);
     // Conecta a um ganho zero para o nó processar sem tocar o som de volta.
@@ -39,9 +40,10 @@ export class MicInput implements InputSource {
     this.node.connect(mute).connect(this.ctx.destination);
   }
 
-  setGuide(notes: GuideNote[] | null): void {
+  setGuide(notes: GuideNote[] | null, context: number[] = []): void {
     this.guide = notes;
-    this.processor?.setGuide(notes);
+    this.context = context;
+    this.processor?.setGuide(notes, context);
   }
 
   stop(): void {

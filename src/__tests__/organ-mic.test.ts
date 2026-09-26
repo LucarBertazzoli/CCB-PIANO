@@ -19,11 +19,19 @@ import { OrganRoom, SR, type RoomOptions, type StopName } from './helpers/organ-
 const BLOCK = 1024;
 const ALL: Voice[] = ['soprano', 'alto', 'tenor', 'bass', 'pedal'];
 
-function listen(notes: { midi: number; stop?: StopName; octave?: number }[], guide: number[], room: RoomOptions = {}) {
+function listen(
+  notes: { midi: number; stop?: StopName; octave?: number }[],
+  guide: number[],
+  room: RoomOptions = {},
+  opts: { pedal?: number[]; context?: number[] } = {},
+) {
   const r = new OrganRoom(room);
   const events: NoteInputEvent[] = [];
   const p = new PitchProcessor(SR, (e) => events.push(e));
-  p.setGuide(guide.map((m, i) => ({ id: `n${i}`, midi: m })));
+  p.setGuide(
+    guide.map((m, i) => ({ id: `n${i}`, midi: m, pedal: opts.pedal?.includes(m) })),
+    opts.context ?? guide,
+  );
   p.push(r.render(SR * 0.3));
   for (const n of notes) r.strike(n.midi, n.stop ?? 'principal', n.octave ?? 0);
   for (let i = 0; i < 20; i++) p.push(r.render(SR * 0.05));
@@ -42,7 +50,7 @@ describe('microfone no órgão: acordes', () => {
 
   it('reconhece as 4 vozes + pedaleira de 16′ (soa uma oitava abaixo)', () => {
     const notes = [...[64, 67, 72, 76].map((midi) => ({ midi })), { midi: 36, stop: 'flauta' as const, octave: -1 }];
-    expect(listen(notes, [36, 64, 67, 72, 76])).toEqual([36, 64, 67, 72, 76]);
+    expect(listen(notes, [36, 64, 67, 72, 76], {}, { pedal: [36] })).toEqual([36, 64, 67, 72, 76]);
   });
 
   it('não aceita nota meio tom errada (Mi♭ no lugar de Mi)', () => {
@@ -51,6 +59,24 @@ describe('microfone no órgão: acordes', () => {
 
   it('não inventa nota que ninguém tocou', () => {
     expect(listen(C.map((midi) => ({ midi, stop: 'cheio' as const })), [62, 65, 74])).toEqual([]);
+  });
+
+  it('piano: nota uma oitava abaixo não vale pela esperada', () => {
+    expect(listen([{ midi: 48, stop: 'piano' }], [60])).toEqual([]);
+    expect(listen([{ midi: 55, stop: 'piano' }], [67])).toEqual([]);
+  });
+
+  it('piano: nota uma oitava acima não vale pela esperada', () => {
+    expect(listen([{ midi: 72, stop: 'piano' }], [60])).toEqual([]);
+  });
+
+  it('piano: a nota certa vale, mesmo com a oitava de baixo pedida no hino', () => {
+    expect(listen([{ midi: 60, stop: 'piano' }], [60])).toEqual([60]);
+    expect(listen([48, 60].map((midi) => ({ midi, stop: 'piano' as const })), [48, 60])).toEqual([48, 60]);
+  });
+
+  it('manual do órgão: oitava abaixo também não vale (só a pedaleira aceita o 16′)', () => {
+    expect(listen([{ midi: 52 }], [64])).toEqual([]);
   });
 
   it('silêncio da igreja (ruído + zumbido) não vira nota', () => {
@@ -76,6 +102,12 @@ function hymn(mode: PracticeMode, policy: 'all' | 'any') {
     if (e.type === 'on') session.noteOn(e.midi);
   });
   return { song, timeline, session, processor };
+}
+
+/** Notas que devem estar soando agora (como o app manda ao microfone). */
+function contextOf(session: PracticeSession): number[] {
+  const t = session.time;
+  return [...new Set(session.timeline.notes.filter((n) => n.time <= t + 0.1 && t < n.time + n.duration + 0.3).map((n) => n.midi))];
 }
 
 function stopFor(n: TimedNote): [StopName, number] {
@@ -118,7 +150,7 @@ function playWaitMode(policy: 'all' | 'any', mistake?: (n: TimedNote) => number,
         sounding.set(n.id, { voice: r.strike(mistake ? mistake(n) : n.midi, stop, octave), end: n.time + n.duration });
       }
     }
-    processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n) })));
+    processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n), pedal: n.voice === 'pedal' })), contextOf(session));
     processor.push(r.render(BLOCK));
     session.tick(BLOCK / SR);
     seconds += BLOCK / SR;
@@ -138,7 +170,7 @@ describe('microfone no órgão: cada nota do acorde conta', () => {
         const soprano = session.expectedNotes().find((n) => n.voice === 'soprano')!;
         r.strike(soprano.midi);
       }
-      processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n) })));
+      processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n), pedal: n.voice === 'pedal' })), contextOf(session));
       processor.push(r.render(BLOCK));
       session.tick(BLOCK / SR);
     }
@@ -192,7 +224,7 @@ describe('microfone no órgão: cada nota do acorde conta', () => {
           if (v) r.release(v);
         }
       }
-      processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n) })));
+      processor.setGuide(session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n), pedal: n.voice === 'pedal' })), contextOf(session));
       processor.push(r.render(BLOCK));
       session.tick(BLOCK / SR);
     }

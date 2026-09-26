@@ -28,7 +28,7 @@ export interface ChordListenerOptions {
   sampleRate: number;
   /** Tamanhos das FFTs (longa, média, curta). */
   sizes: { long: number; mid: number; short: number };
-  /** Aceita a nota soando uma oitava abaixo (registro de 16' no órgão). */
+  /** Pedaleira: aceita a nota soando uma oitava abaixo (registro de 16'). */
   octaveTolerant?: boolean;
   /** Quadros seguidos com a nota presente para confirmá-la. */
   confirmFrames?: number;
@@ -77,6 +77,13 @@ export class ChordListener {
     return [...this.entries.values()].map((e) => e.note);
   }
 
+  /** Notas que devem estar soando agora (esperadas, seguradas e do acompanhamento). */
+  private context = new Set<number>();
+
+  setContext(midis: Iterable<number>): void {
+    this.context = new Set(midis);
+  }
+
   /** Troca as notas esperadas; notas que continuam esperadas mantêm o estado. */
   setGuide(notes: GuideNote[]): ListenerEvent[] {
     const out: ListenerEvent[] = [];
@@ -102,6 +109,7 @@ export class ChordListener {
       }
     }
     this.entries = next;
+    for (const n of notes) this.context.add(n.midi);
     return out;
   }
 
@@ -112,7 +120,7 @@ export class ChordListener {
     const long = band(spectra.long, this.hz.long);
     const mid = band(spectra.mid, this.hz.mid);
     for (const e of this.entries.values()) {
-      const m = this.measure(long, mid, e.note.midi);
+      const m = this.measure(long, mid, e.note);
       const present = loudEnough && m.present;
       this.lastSalience.set(e.note.midi, { level: m.level, ratio: m.ratio });
       const quick = this.quickLevel(e.note.midi < 45 ? spectra.long : spectra.mid, e.note.midi);
@@ -161,10 +169,17 @@ export class ChordListener {
     return out;
   }
 
-  private measure(long: Band, mid: Band, midi: number) {
+  private measure(long: Band, mid: Band, note: GuideNote) {
+    const midi = note.midi;
     const pick = (m: number) => (midiToFrequency(m) < LOW_HZ ? long : mid);
     let best = this.harmonics(pick(midi), midi);
-    if (this.opts.octaveTolerant) {
+    // Nota uma oitava abaixo tem a nota esperada entre os seus harmônicos
+    // (Dó3 soa também um pouco de Dó4). Se a oitava de baixo está soando e
+    // nenhuma voz deveria tocá-la agora, é engano de oitava: não vale.
+    if (best.present && !note.pedal && this.lowerOctaveInstead(pick, midi, best.level)) {
+      best = { ...best, present: false };
+    }
+    if (this.opts.octaveTolerant && note.pedal) {
       // Órgão: o registro de 16' (pedaleira) soa uma oitava abaixo do escrito.
       // A oitava de cima não é aceita: ela já aparece nos harmônicos de
       // quintas e oitavas tocadas e daria falsos acertos.
@@ -173,6 +188,19 @@ export class ChordListener {
       if (m.present && (!best.present || m.level > best.level)) best = m;
     }
     return best;
+  }
+
+  /**
+   * A oitava de baixo está soando por conta própria? Procura a fundamental
+   * dela (f/2), que não existe na nota esperada. Não conta se alguma voz
+   * deveria mesmo estar tocando essa nota (ou a de duas oitavas abaixo).
+   */
+  private lowerOctaveInstead(pick: (m: number) => Band, midi: number, level: number): boolean {
+    const low = midi - 12;
+    if (this.context.has(low) || this.context.has(low - 12)) return false;
+    // Mesma janela da nota esperada, para comparar volumes na mesma escala.
+    const amp = this.peakNear(pick(midi), midiToFrequency(low));
+    return amp > 0 && amp >= level * 0.3;
   }
 
   /**

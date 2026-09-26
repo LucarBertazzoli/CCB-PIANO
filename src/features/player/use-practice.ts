@@ -263,12 +263,23 @@ export function usePractice({
       if (inputSourceRef.current === 'mic') {
         const active = session.status === 'playing' || session.status === 'waiting';
         const guide = active
-          ? session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n) }))
+          ? session.listenFor().map((n) => ({
+              id: n.id,
+              midi: n.midi,
+              restrike: session.isRepeat(n),
+              pedal: n.voice === 'pedal',
+            }))
           : null;
-        const key = guide ? guide.map((g) => g.id).join(',') : 'livre';
+        // Notas que devem estar soando agora (seguradas, de outras vozes ou do
+        // acompanhamento): assim uma oitava pedida pelo hino não vira "engano".
+        const t = session.time;
+        const context = active
+          ? [...new Set(timeline.notes.filter((n) => n.time <= t + 0.1 && t < n.time + n.duration + 0.3).map((n) => n.midi))].sort((a, b) => a - b)
+          : [];
+        const key = guide ? `${guide.map((g) => g.id).join(',')}|${context.join(',')}` : 'livre';
         if (key !== lastGuide) {
           lastGuide = key;
-          inputHub.setGuide(guide);
+          inputHub.setGuide(guide, context);
         }
       }
       raf = requestAnimationFrame(loop);
@@ -278,7 +289,7 @@ export function usePractice({
       cancelAnimationFrame(raf);
       inputHub.setGuide(null);
     };
-  }, [session, time, timeline.secondsPerBeat, song.timeSignature]);
+  }, [session, time, timeline, song.timeSignature]);
 
   // Dicas nos teclados: teclas esperadas (cor do manual + dedo), acertos e erros.
   // Separadas por manual superior (mão direita), inferior (mão esquerda) e pedaleira.

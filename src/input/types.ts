@@ -19,6 +19,8 @@ export interface GuideNote {
   midi: number;
   /** A mesma voz repete a nota: a tecla precisa ser solta e tocada de novo. */
   restrike?: boolean;
+  /** Nota da pedaleira do órgão (o registro de 16' soa uma oitava abaixo). */
+  pedal?: boolean;
 }
 
 export type NoteEmitter = (e: NoteInputEvent) => void;
@@ -31,5 +33,5 @@ export interface InputSource {
   start(emit: NoteEmitter): Promise<void>;
   stop(): void;
   /** Notas esperadas agora (`null` = nenhum hino tocando). Só o microfone usa. */
-  setGuide?(notes: GuideNote[] | null): void;
+  setGuide?(notes: GuideNote[] | null, context?: number[]): void;
 }

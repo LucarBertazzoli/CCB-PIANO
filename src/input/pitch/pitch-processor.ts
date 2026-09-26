@@ -56,7 +56,8 @@ export class PitchProcessor {
    * Notas que o aluno deve tocar agora. `null` = sem hino tocando (modo livre);
    * lista vazia = hino tocando, mas nada esperado neste instante.
    */
-  setGuide(notes: GuideNote[] | null): void {
+  setGuide(notes: GuideNote[] | null, context: number[] = []): void {
+    this.listener.setContext(context);
     const guided = notes !== null;
     if (guided !== this.guided) {
       // Troca de modo: solta o que estiver ligado no modo anterior.

@@ -9,6 +9,7 @@ export class MicInput implements InputSource {
   private recorder: AudioRecorder | null = null;
   processor: PitchProcessor | null = null;
   private guide: GuideNote[] | null = null;
+  private context: number[] = [];
 
   constructor(private sensitivity = 0.01) {}
 
@@ -30,7 +31,7 @@ export class MicInput implements InputSource {
     const sampleRate = 44100;
     this.processor = new PitchProcessor(sampleRate, emit);
     this.processor.setSensitivity(this.sensitivity);
-    this.processor.setGuide(this.guide);
+    this.processor.setGuide(this.guide, this.context);
     const recorder = new AudioRecorder();
     const cb = recorder.onAudioReady(
       { sampleRate, bufferLength: MIC_FRAME_SIZE / 2, channelCount: 1 },
@@ -42,9 +43,10 @@ export class MicInput implements InputSource {
     this.recorder = recorder;
   }
 
-  setGuide(notes: GuideNote[] | null): void {
+  setGuide(notes: GuideNote[] | null, context: number[] = []): void {
     this.guide = notes;
-    this.processor?.setGuide(notes);
+    this.context = context;
+    this.processor?.setGuide(notes, context);
   }
 
   stop(): void {

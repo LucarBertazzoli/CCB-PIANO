@@ -622,6 +622,27 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
             <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
           </View>
 
+          {/* Dica (só na primeira vez): um modo de reconhecimento por vez */}
+          {!settings.tipInputSeen ? (
+            <Animated.View entering={FadeIn.delay(400).duration(250)} style={[s.tip, { top: insets.top + 10 + 70 + 46 * 3 + 14 }]}>
+              <View style={[s.tipArrow, { borderRightColor: pal.primary }]} />
+              <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
+                <Text style={[type.regular, s.tipText, { color: pal.primaryText }]}>
+                  <Text style={type.bold}>Dica: </Text>
+                  para o app reconhecer bem as notas, use um modo por vez, o microfone ou as teclas da tela. Escolha em Ouvir você.
+                </Text>
+                <Pressable
+                  onPress={() => settings.set({ tipInputSeen: true })}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar dica"
+                  style={s.tipClose}>
+                  <Icon name="close" size={16} color={pal.primaryText} />
+                </Pressable>
+              </View>
+            </Animated.View>
+          ) : null}
+
           {/* Abas à esquerda, conteúdo à direita */}
           <View style={s.body}>
             <View style={s.rail}>
@@ -754,6 +775,19 @@ const s = StyleSheet.create({
   result: { fontSize: 13, marginLeft: 4 },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
+  tip: { position: 'absolute', left: 168, zIndex: 20, flexDirection: 'row', alignItems: 'center', maxWidth: 360 },
+  tipArrow: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+  },
+  tipBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 14, paddingVertical: 10, paddingLeft: 14, paddingRight: 10, flexShrink: 1 },
+  tipText: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  tipClose: { padding: 2 },
   rail: { width: 150, gap: 4, paddingTop: 2 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 42, borderRadius: 14, paddingRight: 10, overflow: 'hidden' },
   tabMark: { width: 3, height: 20, borderRadius: 2, marginRight: 2 },
