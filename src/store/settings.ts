@@ -86,7 +86,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   keySize: 'small',
   organManuals: 'two',
   showPedalboard: true,
-  colorMode: 'mono',
+  colorMode: 'color',
   colors: DEFAULT_COLORS,
   fontChoice: 'serif',
   recent: [],

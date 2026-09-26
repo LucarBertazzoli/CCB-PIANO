@@ -33,7 +33,8 @@ CCB), com modo colorido opcional. São só duas telas:
 dela): cartões de apresentação, partitura, órgão com manual superior (mão
 direita), inferior (mão esquerda) e pedaleira, o aluno tocando as duas mãos e
 a pedaleira, modo espera, microfone com sensibilidade alta, teclas pequenas,
-volume médio, fonte serifada e destaque #D81B60. No canto superior direito da
+volume médio, fonte serifada, cores ligadas (mão direita, mão esquerda e
+pedaleira cada uma com a sua cor) e destaque #D81B60. No canto superior direito da
 tela de tocar ficam dois interruptores: **Partitura | Notas** e **Órgão | Piano**.
 No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
 
