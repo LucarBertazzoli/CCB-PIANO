@@ -12,9 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Underline } from '@/features/player/controls';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+import { Icon } from '@/components/Icon';
 import { hymnCatalog, type HymnEntry } from '@/content/hymnal';
-import { font, usePalette } from '@/theme';
+import { RoundButton, Underline } from '@/features/player/controls';
+import { AppearanceSettings } from '@/features/settings/AppearanceSettings';
+import { usePalette, useType } from '@/theme';
+import { withAlpha } from '@/theme/color';
 
 /**
  * Entrada do app: extremamente minimalista. Um campo para digitar o número
@@ -43,6 +48,8 @@ function open(entry: HymnEntry) {
 
 export default function Home() {
   const p = usePalette();
+  const t = useType();
+  const [look, setLook] = useState(false);
   const [kind, setKind] = useState<Kind>('hino');
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
@@ -98,8 +105,8 @@ export default function Home() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: p.bg }]} edges={['left', 'right']}>
       <View style={styles.main}>
-        <Text style={[styles.title, { color: p.text }]}>Hinário</Text>
-        <Text style={[styles.subtitle, { color: p.textDim }]}>Congregação Cristã no Brasil</Text>
+        <Text style={[t.bold, styles.title, { color: p.text }]}>Hinário</Text>
+        <Text style={[t.regular, styles.subtitle, { color: p.textDim }]}>Congregação Cristã no Brasil</Text>
 
         <View style={styles.kind}>
           <Underline
@@ -113,6 +120,7 @@ export default function Home() {
         </View>
 
         <View style={[styles.field, { backgroundColor: p.surface, borderColor: p.border }]}>
+          <Icon name="search" size={18} color={p.textDim} />
           <TextInput
             value={query}
             onChangeText={changeQuery}
@@ -121,7 +129,7 @@ export default function Home() {
             placeholderTextColor={p.textFaint}
             returnKeyType="go"
             autoCorrect={false}
-            style={[styles.input, { color: p.text }]}
+            style={[t.regular, styles.input, { color: p.text }]}
             accessibilityLabel="Buscar hino"
           />
           <Pressable
@@ -129,7 +137,7 @@ export default function Home() {
             accessibilityRole="button"
             accessibilityLabel="Abrir"
             style={[styles.go, { backgroundColor: query.trim() ? p.primary : p.surfaceStrong }]}>
-            <Text style={[styles.goText, { color: query.trim() ? p.primaryText : p.textDim }]}>↑</Text>
+            <Icon name="arrowUp" size={18} color={query.trim() ? p.primaryText : p.textDim} />
           </Pressable>
         </View>
 
@@ -143,15 +151,15 @@ export default function Home() {
                 onPress={() => open(h)}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.result, pressed && { backgroundColor: p.surface }]}>
-                <Text style={[styles.resultNumber, { color: p.textDim }]}>{h.number}</Text>
-                <Text style={[styles.resultTitle, { color: p.text }]} numberOfLines={1}>
+                <Text style={[t.regular, styles.resultNumber, { color: p.textDim }]}>{h.number}</Text>
+                <Text style={[t.regular, styles.resultTitle, { color: p.text }]} numberOfLines={1}>
                   {h.title}
                 </Text>
               </Pressable>
             ))}
           </ScrollView>
         ) : query.trim() ? (
-          <Text style={[styles.empty, { color: p.textFaint }]}>Nenhum {kind} encontrado.</Text>
+          <Text style={[t.regular, styles.empty, { color: p.textFaint }]}>Nenhum {kind} encontrado.</Text>
         ) : null}
       </View>
 
@@ -180,6 +188,7 @@ export default function Home() {
                   style={styles.wheelItem}>
                   <Text
                     style={[
+                      t.bold,
                       styles.wheelNumber,
                       { color: d === 0 ? p.text : p.textFaint, opacity: d > 2 ? 0.3 : 1 - d * 0.2 },
                     ]}>
@@ -195,13 +204,29 @@ export default function Home() {
             onPress={() => open(current)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.pick, pressed && { opacity: 0.7 }]}>
-            <Text style={[styles.pickTitle, { color: p.text }]} numberOfLines={2}>
+            <Text style={[t.regular, styles.pickTitle, { color: p.text }]} numberOfLines={2}>
               {current.title}
             </Text>
-            <Text style={[styles.pickAction, { color: p.textDim }]}>Abrir ›</Text>
+            <Text style={[t.regular, styles.pickAction, { color: p.textDim }]}>Abrir ›</Text>
           </Pressable>
         ) : null}
       </View>
+
+      <View style={styles.corner}>
+        <RoundButton icon="contrast" size={40} onPress={() => setLook(true)} accessibilityLabel="Aparência: fonte e cores" />
+      </View>
+
+      {look ? (
+        <Animated.View entering={FadeIn.duration(160)} style={[StyleSheet.absoluteFill, styles.sheet, { backgroundColor: withAlpha(p.bg, 0.94) }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={[t.bold, styles.sheetTitle, { color: p.text }]}>Aparência</Text>
+            <RoundButton icon="close" size={40} onPress={() => setLook(false)} accessibilityLabel="Fechar" />
+          </View>
+          <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+            <AppearanceSettings />
+          </ScrollView>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -209,31 +234,36 @@ export default function Home() {
 const styles = StyleSheet.create({
   screen: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 32, gap: 40 },
   main: { flex: 1, maxWidth: 560, marginLeft: 'auto' },
-  title: { fontFamily: font, fontSize: 30, fontWeight: '700', letterSpacing: 0.5 },
-  subtitle: { fontFamily: font, fontSize: 12, marginTop: 4, letterSpacing: 0.4 },
+  title: { fontSize: 30, letterSpacing: 0.5 },
+  subtitle: { fontSize: 12, marginTop: 4, letterSpacing: 0.4 },
   kind: { marginTop: 22, marginBottom: 14 },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 26,
     borderWidth: 1,
-    paddingLeft: 20,
+    paddingLeft: 16,
     paddingRight: 6,
+    gap: 10,
     height: 52,
   },
-  input: { flex: 1, fontFamily: font, fontSize: 16, height: '100%', outlineStyle: 'none' } as never,
+  input: { flex: 1, fontSize: 16, height: '100%', outlineStyle: 'none' } as never,
   go: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  goText: { fontFamily: font, fontSize: 18, fontWeight: '700' },
   results: { maxHeight: 150, marginTop: 8 },
   result: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, height: 36, borderRadius: 18 },
-  resultNumber: { fontFamily: font, fontSize: 13, width: 32, textAlign: 'right' },
-  resultTitle: { fontFamily: font, fontSize: 14, flexShrink: 1 },
-  empty: { fontFamily: font, fontSize: 13, marginTop: 12, marginLeft: 20 },
+  resultNumber: { fontSize: 13, width: 32, textAlign: 'right' },
+  resultTitle: { fontSize: 14, flexShrink: 1 },
+  empty: { fontSize: 13, marginTop: 12, marginLeft: 20 },
   side: { width: 190, alignItems: 'center', marginRight: 'auto' },
   band: { position: 'absolute', left: 0, right: 0, height: ITEM, borderRadius: 14, borderWidth: 1 },
   wheelItem: { height: ITEM, alignItems: 'center', justifyContent: 'center' },
-  wheelNumber: { fontFamily: font, fontSize: 22, fontWeight: '600' },
+  wheelNumber: { fontSize: 22 },
   pick: { marginTop: 10, alignItems: 'center', minHeight: 44 },
-  pickTitle: { fontFamily: font, fontSize: 13, textAlign: 'center' },
-  pickAction: { fontFamily: font, fontSize: 12, marginTop: 4 },
+  pickTitle: { fontSize: 13, textAlign: 'center' },
+  pickAction: { fontSize: 12, marginTop: 4 },
+  corner: { position: 'absolute', top: 14, right: 18 },
+  sheet: { paddingHorizontal: 28, paddingTop: 16 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, maxWidth: 860, width: '100%', alignSelf: 'center' },
+  sheetTitle: { fontSize: 20 },
+  sheetBody: { paddingBottom: 28, maxWidth: 860, width: '100%', alignSelf: 'center' },
 });

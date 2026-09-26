@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/source-serif-4": "^0.4.1",
     "@expo/ui": "~57.0.20",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.25",
@@ -55,6 +56,9 @@
     "preset": "jest-expo",
     "testMatch": [
       "**/__tests__/**/*.test.ts?(x)"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock"
+    }
   }
 }

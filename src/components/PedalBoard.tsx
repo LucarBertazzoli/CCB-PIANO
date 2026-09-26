@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isBlackKey, noteName, type Notation } from '@/music/theory';
 
-import { font, usePalette, type Palette } from '@/theme';
+import { usePalette, useType, type Palette } from '@/theme';
 
 import type { KeyHint, KeyState } from './PianoKeyboard';
 
@@ -53,6 +53,7 @@ export const PedalBoard = memo(function PedalBoard({
   onNoteOff,
 }: Props) {
   const palette = usePalette();
+  const type = useType();
   const naturals: number[] = [];
   for (let m = low; m <= high; m++) if (!isBlackKey(m)) naturals.push(m);
   const slot = width / naturals.length;
@@ -71,7 +72,7 @@ export const PedalBoard = memo(function PedalBoard({
 
   return (
     <View style={[styles.board, { width, height, backgroundColor: palette.pedalBoard }]}>
-      <Text style={styles.title}>PEDALEIRA</Text>
+      <Text style={[styles.title, type.regular]}>PEDALEIRA</Text>
       {pedals.map((midi) => {
         const black = isBlackKey(midi);
         const hint = hints?.get(midi);
@@ -94,7 +95,7 @@ export const PedalBoard = memo(function PedalBoard({
               },
             ]}>
             {!black ? (
-              <Text numberOfLines={1} style={[styles.label, { color: c.fg }, midi % 12 === 0 && styles.labelC]}>
+              <Text numberOfLines={1} style={[styles.label, midi % 12 === 0 ? type.bold : type.regular, { color: c.fg }]}>
                 {noteName(midi, notation, { withOctave: midi % 12 === 0, preferFlats })}
               </Text>
             ) : null}
@@ -115,7 +116,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 3,
-    fontFamily: font,
     color: '#6E6E6E',
     fontSize: 8,
     letterSpacing: 1,
@@ -129,6 +129,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2A2A2A',
   },
-  label: { fontFamily: font, fontSize: 9 },
-  labelC: { fontWeight: '700' },
+  label: { fontSize: 9 },
 });

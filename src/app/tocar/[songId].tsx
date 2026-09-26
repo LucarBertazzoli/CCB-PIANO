@@ -3,17 +3,19 @@ import { Text, View } from 'react-native';
 
 import { getSong } from '@/content';
 import { PracticePlayer } from '@/features/player/PracticePlayer';
-import { font } from '@/theme';
+import { usePalette, useType } from '@/theme';
 
 /** Abre o hino direto na tela de tocar (os ajustes ficam no painel do player). */
 export default function PlayHymnScreen() {
   const { songId } = useLocalSearchParams<{ songId: string }>();
   const song = getSong(songId);
+  const pal = usePalette();
+  const type = useType();
 
   if (!song) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#fff', fontFamily: font }}>Hino não encontrado.</Text>
+      <View style={{ flex: 1, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={[type.regular, { color: pal.text }]}>Hino não encontrado.</Text>
       </View>
     );
   }

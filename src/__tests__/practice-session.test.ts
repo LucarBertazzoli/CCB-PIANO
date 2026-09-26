@@ -135,3 +135,43 @@ describe('hinos a 4 vozes', () => {
     expect(active.every((n) => n.voice === 'soprano')).toBe(true);
   });
 });
+
+describe('PracticeSession — linha do tempo (seek)', () => {
+  it('pula para um ponto e espera a primeira nota dali', () => {
+    const s = new PracticeSession({ timeline: buildTimeline(song, { hands: 'right' }), mode: 'wait', leadIn: 1 });
+    s.seek(1.5);
+    expect(s.status).toBe('ready');
+    expect(s.time).toBeCloseTo(1.5);
+    s.start();
+    run(s, 2);
+    // A próxima nota depois de 1,5 s é o acorde (E4 G4) em 2 s.
+    expect(s.status).toBe('waiting');
+    expect(s.expectedNotes().map((n) => n.midi).sort()).toEqual([64, 67]);
+    s.noteOn(64);
+    s.noteOn(67);
+    run(s, 4);
+    expect(s.status).toBe('finished');
+    expect(s.score().total).toBe(2);
+    expect(s.score().accuracy).toBe(1);
+  });
+
+  it('mantém pausado e aplica a contagem antes do ponto', () => {
+    const s = new PracticeSession({ timeline: buildTimeline(song, { hands: 'right' }), mode: 'rhythm', leadIn: 1 });
+    s.start();
+    run(s, 0.5);
+    s.pause();
+    s.seek(1, 0.5);
+    expect(s.status).toBe('paused');
+    expect(s.time).toBeCloseTo(0.5);
+    s.start();
+    expect(s.status).toBe('playing');
+  });
+
+  it('seek(0) volta ao começo com a contagem inteira', () => {
+    const s = new PracticeSession({ timeline: buildTimeline(song, { hands: 'right' }), mode: 'wait', leadIn: 1 });
+    s.seek(2);
+    s.seek(0);
+    expect(s.time).toBeCloseTo(-1);
+    expect(s.score().total).toBe(4);
+  });
+});

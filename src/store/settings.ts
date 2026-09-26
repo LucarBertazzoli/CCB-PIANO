@@ -9,6 +9,30 @@ import type { Notation } from '@/music/theory';
 export type NoteLabelMode = 'name' | 'finger' | 'none';
 /** falling = notas caindo; page = partitura (formato do hinário). */
 export type ViewMode = 'falling' | 'page';
+/** Fonte do app: Verdana (a da CCB), serifada ou OpenDyslexic (dislexia). */
+export type FontChoice = 'verdana' | 'serif' | 'dyslexic';
+/** Cores escolhidas pelo usuário no modo colorido. */
+export interface ColorChoices {
+  accent: string;
+  right: string;
+  left: string;
+  pedal: string;
+  hit: string;
+  miss: string;
+  background: string;
+  paper: string;
+}
+
+export const DEFAULT_COLORS: ColorChoices = {
+  accent: '#FF5A1F',
+  right: '#3FA9F5',
+  left: '#A06BFF',
+  pedal: '#26A69A',
+  hit: '#43C463',
+  miss: '#FF5A5F',
+  background: '#000000',
+  paper: '#FFFFFF',
+};
 
 export interface SettingsState {
   notation: Notation;
@@ -36,6 +60,8 @@ export interface SettingsState {
   showPedalboard: boolean;
   /** Preto e branco (padrão) ou com cores por mão. */
   colorMode: 'mono' | 'color';
+  colors: ColorChoices;
+  fontChoice: FontChoice;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
@@ -57,6 +83,8 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   organManuals: 'two',
   showPedalboard: true,
   colorMode: 'mono',
+  colors: DEFAULT_COLORS,
+  fontChoice: 'verdana',
 };
 
 export const useSettings = create<SettingsState>()(
@@ -65,9 +93,11 @@ export const useSettings = create<SettingsState>()(
     {
       name: 'ccb-piano-settings',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 3,
-      // Nova versão do app: volta aos padrões novos (órgão, partitura, preto e branco).
-      migrate: () => ({ ...DEFAULTS }) as SettingsState,
+      version: 4,
+      // v3 → v4: mantém as escolhas e completa os campos novos (cores e fonte).
+      // Versões mais antigas voltam aos padrões (órgão, partitura, preto e branco).
+      migrate: (state, version) =>
+        (version === 3 ? { ...DEFAULTS, ...(state as object) } : { ...DEFAULTS }) as SettingsState,
     },
   ),
 );

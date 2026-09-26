@@ -1,6 +1,8 @@
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
-import { useSettings } from '@/store/settings';
+import { useSettings, type ColorChoices, type FontChoice } from '@/store/settings';
+
+import { inkOnPaper, mix, readableOn, withAlpha } from './color';
 
 /**
  * Identidade visual: minimalista, preto e branco por padrão (como os
@@ -10,6 +12,8 @@ import { useSettings } from '@/store/settings';
 
 export const font = Platform.select({
   web: 'Verdana, Geneva, "DejaVu Sans", sans-serif',
+  // O Android não tem Verdana: usa a DejaVu Sans (livre e com o mesmo desenho).
+  android: 'DejaVuSans',
   default: 'Verdana',
 }) as string;
 
@@ -116,34 +120,115 @@ export const mono: Palette = {
   pedalLabel: '#6E6E6E',
 };
 
-/** Opcional: cores por mão e um destaque laranja (como o Artie). */
-export const color: Palette = {
-  ...mono,
-  mode: 'color',
-  primary: '#FF5A1F',
-  primaryText: '#FFFFFF',
-  keyRight: ['#5AB4FF', '#1976D2', '#0B2A4A'],
-  keyLeft: ['#B07CFF', '#7B2FD0', '#FFFFFF'],
-  keyPedal: ['#4DD0B8', '#00796B', '#0B3A33'],
-  keyCorrect: '#4CD964',
-  keyWrong: '#FF5A5F',
-  noteRight: '#3FA9F5',
-  noteLeft: '#A06BFF',
-  noteHit: '#2E7D46',
-  noteMissed: '#3A1416',
-  noteText: '#FFFFFF',
-  inkRight: '#1565C0',
-  inkLeft: '#6A2FB8',
-  inkPedal: '#00897B',
-  inkHit: '#1FA64A',
-  inkMissed: '#D93A3F',
-  cursor: 'rgba(33,150,243,0.12)',
-  cursorEdge: '#1E88E5',
-};
+/**
+ * Modo colorido: monta a paleta a partir das cores escolhidas (destaque, mãos,
+ * pedaleira, acerto, erro, fundo e papel), derivando os tons de cada peça.
+ */
+export function buildPalette(c: ColorChoices): Palette {
+  const bg = c.background;
+  const lift = (t: number) => mix(bg, '#FFFFFF', t);
+  const keyTriple = (hex: string): [string, string, string] => [hex, mix(hex, '#000000', 0.3), readableOn(hex)];
+  return {
+    ...mono,
+    mode: 'color',
+    bg,
+    surface: withAlpha(lift(0.16), 0.92),
+    surfaceStrong: withAlpha(lift(0.25), 0.95),
+    primary: c.accent,
+    primaryText: readableOn(c.accent),
+    keyRight: keyTriple(c.right),
+    keyLeft: keyTriple(c.left),
+    keyPedal: keyTriple(c.pedal),
+    keyCorrect: c.hit,
+    keyWrong: c.miss,
+    highway: lift(0.02),
+    lane: lift(0.08),
+    laneC: lift(0.15),
+    barLine: lift(0.11),
+    hitLine: c.accent,
+    noteRight: c.right,
+    noteLeft: c.left,
+    noteAuto: lift(0.13),
+    noteHit: mix(c.hit, bg, 0.45),
+    noteMissed: mix(c.miss, bg, 0.72),
+    noteText: readableOn(c.right),
+    paper: c.paper,
+    inkRight: inkOnPaper(c.right),
+    inkLeft: inkOnPaper(c.left),
+    inkPedal: inkOnPaper(c.pedal),
+    inkHit: inkOnPaper(c.hit),
+    inkMissed: inkOnPaper(c.miss),
+    cursor: withAlpha(c.accent, 0.12),
+    cursorEdge: inkOnPaper(c.accent),
+    pedalBoard: lift(0.06),
+  };
+}
+
+/** Paleta colorida padrão (usada nos testes e como referência). */
+export const color: Palette = buildPalette({
+  accent: '#FF5A1F',
+  right: '#3FA9F5',
+  left: '#A06BFF',
+  pedal: '#26A69A',
+  hit: '#43C463',
+  miss: '#FF5A5F',
+  background: '#000000',
+  paper: '#FFFFFF',
+});
+
+// Uma paleta por combinação de cores: a mesma referência evita redesenhos à toa.
+const cache = new Map<string, Palette>();
 
 export function usePalette(): Palette {
   const mode = useSettings((s) => s.colorMode);
-  return mode === 'color' ? color : mono;
+  const colors = useSettings((s) => s.colors);
+  if (mode !== 'color') return mono;
+  const key = JSON.stringify(colors);
+  let p = cache.get(key);
+  if (!p) {
+    p = buildPalette(colors);
+    cache.set(key, p);
+  }
+  return p;
+}
+
+// ------------------------------------------------------------------ fontes
+
+export interface TypeFace {
+  /** Nome da família regular e da família em negrito. */
+  family: string;
+  boldFamily: string;
+  /** Peso a usar junto de `boldFamily` (Verdana usa o negrito do sistema). */
+  boldWeight: TextStyle['fontWeight'];
+  regular: TextStyle;
+  bold: TextStyle;
+}
+
+function face(family: string, boldFamily: string, boldWeight: TextStyle['fontWeight']): TypeFace {
+  return {
+    family,
+    boldFamily,
+    boldWeight,
+    regular: { fontFamily: family },
+    bold: { fontFamily: boldFamily, fontWeight: boldWeight },
+  };
+}
+
+export const FACES: Record<FontChoice, TypeFace> = {
+  verdana: Platform.OS === 'android' ? face(font, 'DejaVuSans-Bold', 'normal') : face(font, font, '700'),
+  // Serifada no espírito da fonte do Claude (que não é livre): Source Serif 4.
+  serif: face('SourceSerif4_400Regular', 'SourceSerif4_700Bold', 'normal'),
+  dyslexic: face('OpenDyslexic', 'OpenDyslexic-Bold', 'normal'),
+};
+
+export const FONT_LABEL: Record<FontChoice, string> = {
+  verdana: 'Verdana',
+  serif: 'Serifada',
+  dyslexic: 'OpenDyslexic',
+};
+
+export function useType(): TypeFace {
+  return FACES[useSettings((s) => s.fontChoice)];
 }
 
 export const radius = { sm: 6, md: 12, lg: 20, pill: 999 } as const;

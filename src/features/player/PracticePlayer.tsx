@@ -1,22 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HymnScore } from '@/components/HymnScore';
+import { Icon, type IconName } from '@/components/Icon';
 import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
 import { NoteHighway } from '@/components/NoteHighway';
 import { PedalBoard } from '@/components/PedalBoard';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import type { Song, Voice } from '@/content/types';
 import type { PracticeMode } from '@/engine/practice-session';
+import { AppearanceSettings } from '@/features/settings/AppearanceSettings';
 import { inputHub } from '@/input/input-hub';
 import type { InputSourceKind, KeyTarget } from '@/input/types';
 import { noteName } from '@/music/theory';
 import { useSettings } from '@/store/settings';
-import { font, usePalette } from '@/theme';
+import { usePalette, useType } from '@/theme';
+import { withAlpha } from '@/theme/color';
 
-import { Choices, Glass, Label, MultiChoices, Pill, RoundButton, Row, Toggle, Underline } from './controls';
+import { Choices, Glass, Label, MultiChoices, OptionCard, RoundButton, Row, SectionTitle, Segmented, Toggle } from './controls';
+import { measureAt, Scrubber } from './Scrubber';
 import { usePractice } from './use-practice';
 
 export interface PracticePlayerProps {
@@ -25,7 +29,7 @@ export interface PracticePlayerProps {
 }
 
 type Part = 'right' | 'left' | 'pedal';
-type Detail = null | 'voices' | 'loop' | 'input' | 'keyboard';
+type Tab = 'practice' | 'view' | 'instrument' | 'input' | 'look';
 
 const PART_VOICES: Record<Part, Voice[]> = {
   right: ['soprano', 'alto'],
@@ -39,19 +43,28 @@ const VOICE_LABEL: Record<Voice, string> = {
   bass: 'Baixo',
   pedal: 'Pedaleira',
 };
-const SOURCE_LABEL: Record<InputSourceKind, string> = { touch: 'Tela', midi: 'Teclado MIDI', mic: 'Microfone' };
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: 'practice', label: 'Prática', icon: 'music' },
+  { id: 'view', label: 'Visualização', icon: 'eye' },
+  { id: 'instrument', label: 'Instrumento', icon: 'keys' },
+  { id: 'input', label: 'Ouvir você', icon: 'mic' },
+  { id: 'look', label: 'Aparência', icon: 'contrast' },
+];
 const APP_YOU = [
   { value: 'app' as const, label: 'App' },
   { value: 'you' as const, label: 'Você' },
 ];
+const TEMPO_GLYPH: Record<string, string> = { q: '♩', e: '♪', 'q.': '♩.', h: '𝅗𝅥' };
 
 /**
  * Tela de tocar um hino. Enquanto toca: só a música e o teclado. Ao pausar,
- * abre o painel de ajustes (inspirado no Artie) com tudo o que é preciso.
+ * abre o painel (inspirado no Artie): linha do tempo arrastável em cima e os
+ * ajustes organizados em abas.
  */
 export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const settings = useSettings();
   const pal = usePalette();
+  const type = useType();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const organ = settings.instrument === 'organ';
@@ -88,23 +101,22 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
 
   // ------------------------------------------------------------- painel
   const [panelState, setPanel] = useState(true);
-  const [detail, setDetail] = useState<Detail>(null);
+  const [tab, setTab] = useState<Tab>('practice');
+  const [showVoices, setShowVoices] = useState(false);
   const playing = p.status === 'playing' || p.status === 'waiting';
+  const { status, restart, start } = p;
+  const panel = panelState || (status === 'finished' && !loop);
   const openPanel = () => {
     p.pause();
     setPanel(true);
   };
   const play = () => {
     setPanel(false);
-    setDetail(null);
     if (p.status === 'finished') p.restart();
     p.start();
   };
-  const toggleDetail = (d: Detail) => setDetail((cur) => (cur === d ? null : d));
 
-  // Ao terminar: repete o trecho ou volta ao painel.
-  const { status, restart, start } = p;
-  const panel = panelState || (status === 'finished' && !loop);
+  // Ao terminar: repete o trecho (se pedido); senão o painel volta sozinho.
   useEffect(() => {
     if (status !== 'finished' || !loop) return;
     restart();
@@ -191,9 +203,14 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           .map(([k, n]) => `${k}: ${n}`)
           .join('   ·   ');
 
-  // Linha do tempo: um tique por compasso.
-  const ticks = p.timeline.measureStarts;
-  const totalBeats = ticks[ticks.length - 1] || 1;
+  // Linha do tempo: compasso atual.
+  const measures = p.timeline.measureStarts;
+  const totalMeasures = Math.max(1, measures.length - 1);
+  const currentMeasure = measureAt(measures, p.progress * (measures[measures.length - 1] || 0));
+  // Num trecho, a numeração continua a do hino inteiro.
+  const measureOffset = sectionId
+    ? Math.max(0, (song.measures ?? []).findIndex((b) => b >= p.timeline.originBeat - 1e-6))
+    : 0;
 
   const setPart = (part: Part, you: boolean) => {
     setCustomVoices(null);
@@ -208,7 +225,282 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const mark = song.tempoMark;
   const onPaper = viewMode === 'page';
 
-  const s = styles;
+  const whoPlays =
+    mode === 'demo'
+      ? 'Só ouvir: o app toca o hino inteiro.'
+      : `Você toca: ${voices.map((v) => VOICE_LABEL[v].toLowerCase()).join(', ')}. O app toca o resto.`;
+
+  // ------------------------------------------------------------- abas do painel
+  const practiceTab = (
+    <View style={s.columns}>
+      <View style={s.column}>
+        <SectionTitle>Quem toca</SectionTitle>
+        <Glass>
+          <Row label="Mão direita" hint="Soprano e contralto">
+            <Segmented compact options={APP_YOU} value={partValue('right')} onChange={(v) => setPart('right', v === 'you')} />
+          </Row>
+          <Row label="Mão esquerda" hint="Tenor e baixo">
+            <Segmented compact options={APP_YOU} value={partValue('left')} onChange={(v) => setPart('left', v === 'you')} />
+          </Row>
+          {organ ? (
+            <Row label="Pedaleira" hint="Linha do baixo, com os pés">
+              <Segmented compact options={APP_YOU} value={partValue('pedal')} onChange={(v) => setPart('pedal', v === 'you')} />
+            </Row>
+          ) : null}
+          <Row label="Escolher vozes" hint={showVoices ? undefined : whoPlays} onPress={() => setShowVoices((v) => !v)} last={!showVoices}>
+            <Icon name={showVoices ? 'chevronUp' : 'chevronDown'} size={16} color={pal.textDim} />
+          </Row>
+          {showVoices ? (
+            <View style={s.voiceBox}>
+              <MultiChoices<Voice>
+                options={(['soprano', 'alto', 'tenor', 'bass', ...(organ ? (['pedal'] as Voice[]) : [])] as Voice[]).map((v) => ({ value: v, label: VOICE_LABEL[v] }))}
+                values={voices}
+                onToggle={toggleVoice}
+              />
+              <Label dim>{whoPlays}</Label>
+            </View>
+          ) : null}
+        </Glass>
+
+        <SectionTitle>Como tocar</SectionTitle>
+        <Glass>
+          <Row label="Modo espera" hint="O hino para até você tocar a nota certa">
+            <Toggle value={waitMode} onChange={setWaitMode} label="Modo espera" />
+          </Row>
+          <Row label="Acompanhamento" hint="O app toca as vozes que não são suas" last>
+            <Toggle value={settings.playAccompaniment} onChange={(v) => settings.set({ playAccompaniment: v })} label="Acompanhamento" />
+          </Row>
+        </Glass>
+      </View>
+
+      <View style={s.column}>
+        <SectionTitle>Andamento</SectionTitle>
+        <Glass style={s.tempoCard}>
+          <View style={s.tempoRow}>
+            <RoundButton label="−" onPress={() => changeBpm(bpm - 2)} accessibilityLabel="Diminuir andamento" />
+            <View style={s.tempoValue}>
+              <TextInput
+                value={bpmText}
+                onChangeText={(t) => setBpmText(t.replace(/\D/g, '').slice(0, 3))}
+                onBlur={() => changeBpm(parseInt(bpmText, 10) || bpm)}
+                onSubmitEditing={() => changeBpm(parseInt(bpmText, 10) || bpm)}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                style={[type.bold, s.tempoInput, { color: pal.text, borderBottomColor: pal.border }]}
+                accessibilityLabel="Andamento em batidas por minuto"
+              />
+              <Text style={[type.regular, s.tempoLabel, { color: pal.textDim }]}>♩ por minuto · toque para digitar</Text>
+            </View>
+            <RoundButton label="+" onPress={() => changeBpm(bpm + 2)} accessibilityLabel="Aumentar andamento" />
+          </View>
+          <Choices<number>
+            options={[0.5, 0.75, 1].map((f) => ({ value: Math.round(song.tempo * f), label: f === 1 ? `Normal ${song.tempo}` : `${f * 100}%` }))}
+            value={bpm}
+            onChange={changeBpm}
+          />
+          <Row label="Metrônomo" hint={mark ? `Hinário: ${TEMPO_GLYPH[mark.unit] ?? '♩'} = ${mark.min}${mark.max !== mark.min ? `–${mark.max}` : ''}` : undefined} last>
+            <Toggle value={settings.metronome} onChange={(v) => settings.set({ metronome: v })} label="Metrônomo" />
+          </Row>
+        </Glass>
+
+        {song.sections?.length ? (
+          <>
+            <SectionTitle>Trecho</SectionTitle>
+            <Glass>
+              <View style={s.sectionChoices}>
+                <Choices<string>
+                  options={[{ value: '', label: 'Hino inteiro' }, ...song.sections.map((x) => ({ value: x.id, label: x.label }))]}
+                  value={sectionId ?? ''}
+                  onChange={(v) => setSectionId(v || undefined)}
+                />
+              </View>
+              <Row label="Repetir sem parar" last>
+                <Toggle value={loop} onChange={setLoop} label="Repetir sem parar" />
+              </Row>
+            </Glass>
+          </>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const viewTab = (
+    <View style={s.stack}>
+      <SectionTitle>Ver como</SectionTitle>
+      <View style={s.cards}>
+        <OptionCard
+          title="Notas caindo"
+          subtitle="As notas descem até a tecla certa"
+          selected={viewMode === 'falling'}
+          onPress={() => settings.set({ viewMode: 'falling' })}
+          preview={<FallingPreview />}
+        />
+        <OptionCard
+          title="Partitura"
+          subtitle="Como no hinário da organista"
+          selected={viewMode === 'page'}
+          onPress={() => settings.set({ viewMode: 'page' })}
+          preview={<PagePreview />}
+        />
+      </View>
+      <Glass>
+        {viewMode === 'page' ? (
+          <Row label="Teclado junto da partitura" hint="Mostra os teclados embaixo da pauta">
+            <Toggle value={settings.showKeyboard} onChange={(v) => settings.set({ showKeyboard: v })} label="Teclado junto da partitura" />
+          </Row>
+        ) : (
+          <>
+            <Row label="Velocidade das notas">
+              <Segmented
+                compact
+                options={[
+                  { value: 100, label: 'Lenta' },
+                  { value: 150, label: 'Normal' },
+                  { value: 220, label: 'Rápida' },
+                ]}
+                value={settings.fallSpeed}
+                onChange={(v) => settings.set({ fallSpeed: v })}
+              />
+            </Row>
+            <Row label="Dentro das notas">
+              <Segmented
+                compact
+                options={[
+                  { value: 'name', label: 'Nome' },
+                  { value: 'finger', label: 'Dedo' },
+                  { value: 'none', label: 'Nada' },
+                ]}
+                value={settings.noteLabels}
+                onChange={(v) => settings.set({ noteLabels: v as 'name' | 'finger' | 'none' })}
+              />
+            </Row>
+          </>
+        )}
+        <Row label="Nomes das notas">
+          <Segmented
+            compact
+            options={[
+              { value: 'solfege', label: 'Dó Ré Mi' },
+              { value: 'letters', label: 'C D E' },
+            ]}
+            value={settings.notation}
+            onChange={(v) => settings.set({ notation: v as 'solfege' | 'letters' })}
+          />
+        </Row>
+        <Row label="Nomes nas teclas" hint="Os Dós sempre mostram a oitava (Dó3 = Dó central)" last>
+          <Toggle value={settings.showKeyLabels} onChange={(v) => settings.set({ showKeyLabels: v })} label="Nomes nas teclas" />
+        </Row>
+      </Glass>
+    </View>
+  );
+
+  const instrumentTab = (
+    <View style={s.stack}>
+      <SectionTitle>Instrumento</SectionTitle>
+      <View style={s.cards}>
+        <OptionCard title="Órgão" subtitle="Dois manuais, pedaleira e notas ligadas" icon="keys" selected={organ} onPress={() => settings.set({ instrument: 'organ' })} />
+        <OptionCard title="Piano" subtitle="Um teclado, as 4 vozes nas duas mãos" icon="music" selected={!organ} onPress={() => settings.set({ instrument: 'piano' })} />
+      </View>
+      <Glass>
+        {organ ? (
+          <>
+            <Row label="Manuais" hint="Superior (mão direita) e inferior (mão esquerda)">
+              <Segmented
+                compact
+                options={[
+                  { value: 'two', label: 'Dois' },
+                  { value: 'one', label: 'Um' },
+                ]}
+                value={settings.organManuals}
+                onChange={(v) => settings.set({ organManuals: v as 'one' | 'two' })}
+              />
+            </Row>
+            <Row label="Pedaleira na tela">
+              <Toggle value={settings.showPedalboard} onChange={(v) => settings.set({ showPedalboard: v })} label="Pedaleira na tela" />
+            </Row>
+          </>
+        ) : null}
+        <Row label="Tamanho das teclas" hint="Teclas menores mostram mais oitavas">
+          <Segmented
+            compact
+            options={[
+              { value: 'large', label: 'Grandes' },
+              { value: 'medium', label: 'Médias' },
+              { value: 'small', label: 'Pequenas' },
+            ]}
+            value={settings.keySize}
+            onChange={(v) => settings.set({ keySize: v as 'large' | 'medium' | 'small' })}
+          />
+        </Row>
+        <Row label="Volume" last>
+          <Segmented
+            compact
+            options={[
+              { value: 0.45, label: 'Baixo' },
+              { value: 0.8, label: 'Médio' },
+              { value: 1, label: 'Alto' },
+            ]}
+            value={settings.volume}
+            onChange={(v) => settings.set({ volume: v })}
+          />
+        </Row>
+      </Glass>
+    </View>
+  );
+
+  const inputTab = (
+    <View style={s.stack}>
+      <SectionTitle>Como o app ouve você</SectionTitle>
+      <View style={s.cards}>
+        {(
+          [
+            { value: 'touch', title: 'Tela', subtitle: 'Toque nas teclas da tela', icon: 'touch' },
+            { value: 'midi', title: 'Teclado MIDI', subtitle: 'Ligado por cabo (Chrome ou Edge)', icon: 'cable' },
+            { value: 'mic', title: 'Microfone', subtitle: 'Toque no seu instrumento de verdade', icon: 'mic' },
+          ] as { value: InputSourceKind; title: string; subtitle: string; icon: IconName }[]
+        ).map((o) => (
+          <OptionCard
+            key={o.value}
+            title={o.title}
+            subtitle={o.subtitle}
+            icon={o.icon}
+            selected={settings.inputSource === o.value}
+            onPress={() => settings.set({ inputSource: o.value })}
+          />
+        ))}
+      </View>
+      <Glass>
+        {settings.inputSource === 'mic' ? (
+          <Row label="Sensibilidade" hint="Aumente se o app não ouvir; diminua se ouvir barulho">
+            <Segmented
+              compact
+              options={[
+                { value: 0.02, label: 'Baixa' },
+                { value: 0.01, label: 'Média' },
+                { value: 0.004, label: 'Alta' },
+              ]}
+              value={settings.micSensitivity}
+              onChange={(v) => settings.set({ micSensitivity: v })}
+            />
+          </Row>
+        ) : null}
+        <Row label="Teste" hint={inputError ?? 'Toque uma nota para conferir'} last>
+          <Text style={[type.bold, s.heard, { color: pal.text }]}>
+            {heard !== null ? noteName(heard, settings.notation, { withOctave: true, preferFlats }) : '—'}
+          </Text>
+        </Row>
+      </Glass>
+    </View>
+  );
+
+  const content: Record<Tab, ReactNode> = {
+    practice: practiceTab,
+    view: viewTab,
+    instrument: instrumentTab,
+    input: inputTab,
+    look: <AppearanceSettings />,
+  };
+
   return (
     <View
       style={[
@@ -235,19 +527,19 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           />
         )}
 
-        {/* Controles discretos enquanto toca */}
+        {/* Enquanto toca: pausar e a linha do tempo (também arrastável) */}
         {!panel || playing ? (
           <View style={s.floating} pointerEvents="box-none">
-            <RoundButton label="❚❚" size={36} onPress={openPanel} accessibilityLabel="Pausar e abrir ajustes" />
-            <View style={[s.miniTrack, { backgroundColor: onPaper ? 'rgba(0,0,0,0.10)' : pal.surfaceStrong }]}>
-              <View style={[s.miniFill, { width: `${p.progress * 100}%`, backgroundColor: onPaper ? '#111111' : pal.text }]} />
+            <RoundButton icon="pause" size={36} onPress={openPanel} accessibilityLabel="Pausar e abrir ajustes" />
+            <View style={s.floatingTrack}>
+              <Scrubber thin onPaper={onPaper} measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </View>
           </View>
         ) : null}
 
         {waitText && !panel ? (
           <View style={[s.waitBadge, { backgroundColor: pal.surface, borderColor: pal.border }]} pointerEvents="none">
-            <Text style={[s.waitText, { color: pal.text }]}>{waitText}</Text>
+            <Text style={[type.regular, s.waitText, { color: pal.text }]}>{waitText}</Text>
           </View>
         ) : null}
 
@@ -256,7 +548,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
             key={p.feedback.id}
             entering={ZoomIn.duration(120)}
             exiting={FadeOut.duration(300)}
-            style={[s.feedback, { color: onPaper ? '#111111' : pal.text }]}>
+            style={[type.bold, s.feedback, { color: onPaper ? pal.ink : pal.text }]}>
             {p.feedback.text}
           </Animated.Text>
         ) : null}
@@ -280,228 +572,123 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
         </View>
       ) : null}
 
-      {/* ---------------------------------------------------- painel de ajustes (pausado) */}
+      {/* ---------------------------------------------------- painel (pausado) */}
       {panel && !playing ? (
-        <Animated.View entering={FadeIn.duration(150)} style={[StyleSheet.absoluteFill, s.scrim]}>
-          <ScrollView
-            contentContainerStyle={[
-              s.panel,
-              { paddingTop: insets.top + 12, paddingLeft: insets.left + 16, paddingRight: insets.right + 16 },
-            ]}>
-            {/* Linha 1: voltar · hino e linha do tempo · tocar */}
-            <View style={s.line}>
-              <RoundButton label="‹" onPress={onExit} accessibilityLabel="Voltar ao hinário" />
-              <Glass style={s.timelineBox}>
-                <View style={s.titleRow}>
-                  <Text style={[s.hymnTitle, { color: pal.text }]} numberOfLines={1}>
-                    {song.hymnNumber ? `${song.hymnNumber}  ` : ''}
-                    {song.title}
-                  </Text>
-                  {p.status === 'finished' && p.score && mode !== 'demo' ? (
-                    <Text style={[s.result, { color: pal.text }]}>
-                      {'★'.repeat(p.score.stars)}
-                      {'☆'.repeat(3 - p.score.stars)} {Math.round(p.score.accuracy * 100)}%
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={s.ticks}>
-                  <View style={[s.axis, { backgroundColor: pal.border }]} />
-                  {ticks.slice(0, -1).map((b, i) => (
-                    <View key={i} style={[s.tick, { left: `${(b / totalBeats) * 100}%`, backgroundColor: pal.textDim }]} />
-                  ))}
-                  <View style={[s.marker, { left: `${p.progress * 100}%`, backgroundColor: pal.primary }]} />
-                </View>
-              </Glass>
-              <RoundButton label="▶" active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Começar'} />
-            </View>
-
-            {/* Linha 2: vozes · andamento · metrônomo · trecho */}
-            <View style={s.line}>
-              <Pill label="Vozes" icon="✋✋" active={detail === 'voices'} onPress={() => toggleDetail('voices')} />
-              <View style={s.tempo}>
-                <RoundButton label="−" onPress={() => changeBpm(bpm - 2)} accessibilityLabel="Diminuir andamento" />
-                <View style={s.tempoValue}>
-                  <TextInput
-                    value={bpmText}
-                    onChangeText={(t) => setBpmText(t.replace(/\D/g, '').slice(0, 3))}
-                    onBlur={() => changeBpm(parseInt(bpmText, 10) || bpm)}
-                    onSubmitEditing={() => changeBpm(parseInt(bpmText, 10) || bpm)}
-                    keyboardType="number-pad"
-                    style={[s.tempoInput, { color: pal.text }]}
-                    accessibilityLabel="Andamento em semínimas por minuto"
-                  />
-                  <Text style={[s.tempoLabel, { color: pal.textDim }]}>Andamento ♩</Text>
-                </View>
-                <RoundButton label="+" onPress={() => changeBpm(bpm + 2)} accessibilityLabel="Aumentar andamento" />
-              </View>
-              <RoundButton label="♪" active={settings.metronome} onPress={() => settings.set({ metronome: !settings.metronome })} accessibilityLabel="Metrônomo" />
-              <Pill
-                label={sectionId ? (song.sections?.find((x) => x.id === sectionId)?.label ?? 'Trecho') : 'Trecho'}
-                icon="⟲"
-                active={detail === 'loop'}
-                onPress={() => toggleDetail('loop')}
-              />
-            </View>
-
-            {/* Cartões (ou o detalhe aberto) */}
-            {detail === 'voices' ? (
-              <Glass style={s.pad}>
-                <Label>Vozes que você toca</Label>
-                <MultiChoices<Voice>
-                  options={(['soprano', 'alto', 'tenor', 'bass', ...(organ ? (['pedal'] as Voice[]) : [])] as Voice[]).map((v) => ({ value: v, label: VOICE_LABEL[v] }))}
-                  values={voices}
-                  onToggle={toggleVoice}
-                />
-                <Label dim>
-                  {voices.length
-                    ? 'As outras vozes tocam junto com você.'
-                    : 'Nenhuma voz escolhida: o app toca o hino inteiro para você ouvir.'}
-                </Label>
-              </Glass>
-            ) : detail === 'loop' ? (
-              <Glass style={s.pad}>
-                <Label>Trecho</Label>
-                <Choices<string>
-                  options={[{ value: '', label: 'Hino inteiro' }, ...(song.sections ?? []).map((x) => ({ value: x.id, label: x.label }))]}
-                  value={sectionId ?? ''}
-                  onChange={(v) => setSectionId(v || undefined)}
-                />
-                <Row label="Repetir sem parar" icon="⟲" last>
-                  <Toggle value={loop} onChange={setLoop} label="Repetir sem parar" />
-                </Row>
-              </Glass>
-            ) : detail === 'input' ? (
-              <Glass style={s.pad}>
-                <Label>Como o app ouve você</Label>
-                <Choices<InputSourceKind>
-                  options={(['touch', 'midi', 'mic'] as InputSourceKind[]).map((v) => ({ value: v, label: SOURCE_LABEL[v] }))}
-                  value={settings.inputSource}
-                  onChange={(v) => settings.set({ inputSource: v })}
-                />
-                {settings.inputSource === 'mic' ? (
-                  <>
-                    <Label dim>Sensibilidade do microfone</Label>
-                    <Choices<number>
-                      options={[
-                        { value: 0.02, label: 'Baixa' },
-                        { value: 0.01, label: 'Média' },
-                        { value: 0.004, label: 'Alta' },
-                      ]}
-                      value={settings.micSensitivity}
-                      onChange={(v) => settings.set({ micSensitivity: v })}
-                    />
-                  </>
-                ) : null}
-                <Row label="Teste: toque uma nota" last>
-                  <Text style={[s.heard, { color: inputError ? pal.textDim : pal.text }]} numberOfLines={2}>
-                    {inputError ?? (heard !== null ? noteName(heard, settings.notation, { withOctave: true, preferFlats }) : '—')}
-                  </Text>
-                </Row>
-              </Glass>
-            ) : detail === 'keyboard' ? (
-              <Glass style={s.pad}>
-                <Row label="Instrumento">
-                  <Choices options={[{ value: 'organ', label: 'Órgão' }, { value: 'piano', label: 'Piano' }]} value={settings.instrument} onChange={(v) => settings.set({ instrument: v as 'organ' | 'piano' })} />
-                </Row>
-                {organ ? (
-                  <Row label="Manuais">
-                    <Choices options={[{ value: 'two', label: 'Superior e inferior' }, { value: 'one', label: 'Um teclado' }]} value={settings.organManuals} onChange={(v) => settings.set({ organManuals: v as 'one' | 'two' })} />
-                    <Label dim>Pedaleira</Label>
-                    <Toggle value={settings.showPedalboard} onChange={(v) => settings.set({ showPedalboard: v })} label="Pedaleira" />
-                  </Row>
-                ) : null}
-                <Row label="Teclas">
-                  <Choices options={[{ value: 'large', label: 'Grandes' }, { value: 'medium', label: 'Médias' }, { value: 'small', label: 'Pequenas' }]} value={settings.keySize} onChange={(v) => settings.set({ keySize: v as 'large' | 'medium' | 'small' })} />
-                </Row>
-                <Row label="Nomes das notas">
-                  <Choices options={[{ value: 'solfege', label: 'Dó Ré Mi' }, { value: 'letters', label: 'C D E' }]} value={settings.notation} onChange={(v) => settings.set({ notation: v as 'solfege' | 'letters' })} />
-                  <Toggle value={settings.showKeyLabels} onChange={(v) => settings.set({ showKeyLabels: v })} label="Nomes nas teclas" />
-                </Row>
-                <Row label="Teclado junto da partitura">
-                  <Toggle value={settings.showKeyboard} onChange={(v) => settings.set({ showKeyboard: v })} label="Teclado junto da partitura" />
-                </Row>
-                <Row label="Cores" last>
-                  <Choices options={[{ value: 'mono', label: 'Preto e branco' }, { value: 'color', label: 'Colorido' }]} value={settings.colorMode} onChange={(v) => settings.set({ colorMode: v as 'mono' | 'color' })} />
-                </Row>
-              </Glass>
-            ) : (
-              <View style={s.cards}>
-                <Glass style={s.card}>
-                  <Row label="Mão esquerda" icon="✋">
-                    <Underline options={APP_YOU} value={partValue('left')} onChange={(v) => setPart('left', v === 'you')} />
-                  </Row>
-                  <Row label="Mão direita" icon="✋" last={!organ}>
-                    <Underline options={APP_YOU} value={partValue('right')} onChange={(v) => setPart('right', v === 'you')} />
-                  </Row>
-                  {organ ? (
-                    <Row label="Pedaleira" icon="▭" last>
-                      <Underline options={APP_YOU} value={partValue('pedal')} onChange={(v) => setPart('pedal', v === 'you')} />
-                    </Row>
-                  ) : null}
-                </Glass>
-                <Glass style={s.card}>
-                  <Row label="Modo espera" icon="⏱">
-                    <Toggle value={waitMode} onChange={setWaitMode} label="Modo espera" />
-                  </Row>
-                  <Row label="Acompanhamento" icon="♫" last>
-                    <Toggle value={settings.playAccompaniment} onChange={(v) => settings.set({ playAccompaniment: v })} label="Acompanhamento" />
-                  </Row>
-                </Glass>
-              </View>
-            )}
-
-            {/* Visualização + reconhecimento + teclado */}
-            <Glass style={s.slim}>
-              <Row label="Ver como">
-                <Underline<'falling' | 'page'>
-                  options={[
-                    { value: 'falling', label: 'Notas' },
-                    { value: 'page', label: 'Partitura' },
-                  ]}
-                  value={viewMode}
-                  onChange={(v) => settings.set({ viewMode: v })}
-                />
-              </Row>
-              <Row label="Reconhecimento de notas" onPress={() => toggleDetail('input')}>
-                <Text style={[s.rowValue, { color: pal.text }]}>{SOURCE_LABEL[settings.inputSource]}</Text>
-                <Text style={[s.chev, { color: pal.text }]}>›</Text>
-              </Row>
-              <Row label="Teclado e aparência" onPress={() => toggleDetail('keyboard')} last>
-                <Text style={[s.rowValue, { color: pal.text }]}>
-                  {organ ? 'Órgão' : 'Piano'} · {settings.colorMode === 'mono' ? 'Preto e branco' : 'Colorido'}
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: withAlpha(pal.bg, 0.93),
+              paddingTop: insets.top + 10,
+              paddingLeft: insets.left + 14,
+              paddingRight: insets.right + 14,
+              paddingBottom: insets.bottom,
+            },
+          ]}>
+          {/* Cabeçalho: voltar · hino e linha do tempo · recomeçar · tocar */}
+          <View style={s.header}>
+            <RoundButton icon="back" onPress={onExit} accessibilityLabel="Voltar ao hinário" />
+            <Glass style={s.timelineBox}>
+              <View style={s.titleRow}>
+                <Text style={[type.bold, s.hymnNumber, { color: pal.text }]}>{song.hymnNumber ?? ''}</Text>
+                <Text style={[type.regular, s.hymnTitle, { color: pal.text }]} numberOfLines={1}>
+                  {song.title}
                 </Text>
-                <Text style={[s.chev, { color: pal.text }]}>›</Text>
-              </Row>
+                {p.status === 'finished' && p.score && mode !== 'demo' ? (
+                  <Text style={[type.bold, s.result, { color: pal.text }]}>
+                    {'★'.repeat(p.score.stars)}
+                    {'☆'.repeat(3 - p.score.stars)} {Math.round(p.score.accuracy * 100)}%
+                  </Text>
+                ) : (
+                  <Text style={[type.regular, s.measure, { color: pal.textDim }]}>
+                    Compasso {currentMeasure + 1 + measureOffset} de {totalMeasures + measureOffset}
+                  </Text>
+                )}
+              </View>
+              <Scrubber measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </Glass>
+            <RoundButton icon="restart" onPress={() => p.seek(0)} accessibilityLabel="Voltar ao começo" />
+            <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
+          </View>
 
-            <Text style={[s.footnote, { color: pal.textDim }]}>
-              {mode === 'demo'
-                ? 'O app toca o hino inteiro para você ouvir e acompanhar.'
-                : waitMode
-                  ? 'Modo espera: o hino para em cada nota até você tocar.'
-                  : 'Sem espera: toque no andamento, como no culto.'}
-              {mark ? `   Hinário: ${mark.unit === 'e' ? '♪' : mark.unit === 'h' ? '𝅗𝅥' : mark.unit === 'q.' ? '♩.' : '♩'} = ${mark.min}–${mark.max}` : ''}
-            </Text>
-          </ScrollView>
+          {/* Abas à esquerda, conteúdo à direita */}
+          <View style={s.body}>
+            <View style={s.rail}>
+              {TABS.map((t) => {
+                const on = t.id === tab;
+                return (
+                  <Pressable
+                    key={t.id}
+                    onPress={() => setTab(t.id)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: on }}
+                    style={({ pressed }) => [s.tab, on && { backgroundColor: pal.surfaceStrong }, pressed && { opacity: 0.7 }]}>
+                    <View style={[s.tabMark, { backgroundColor: on ? pal.primary : 'transparent' }]} />
+                    <Icon name={t.icon} size={18} color={on ? pal.text : pal.textDim} />
+                    <Text style={[on ? type.bold : type.regular, s.tabLabel, { color: on ? pal.text : pal.textDim }]} numberOfLines={1}>
+                      {t.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <ScrollView style={s.content} contentContainerStyle={s.contentInner} showsVerticalScrollIndicator={false}>
+              {content[tab]}
+            </ScrollView>
+          </View>
         </Animated.View>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+/** Miniaturas dos modos de visualização. */
+function FallingPreview() {
+  const pal = usePalette();
+  const bars = [
+    { l: 6, t: 4, h: 16, c: pal.noteRight },
+    { l: 26, t: 14, h: 12, c: pal.noteLeft },
+    { l: 46, t: 0, h: 22, c: pal.noteRight },
+    { l: 66, t: 10, h: 14, c: pal.noteLeft },
+  ];
+  return (
+    <View style={[s.preview, { backgroundColor: pal.highway }]}>
+      {bars.map((b, i) => (
+        <View key={i} style={{ position: 'absolute', left: b.l, top: b.t, width: 14, height: b.h, borderRadius: 3, backgroundColor: b.c }} />
+      ))}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 8, height: 1, backgroundColor: pal.hitLine }} />
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 8, backgroundColor: pal.keyWhite }} />
+    </View>
+  );
+}
+
+function PagePreview() {
+  const pal = usePalette();
+  return (
+    <View style={[s.preview, { backgroundColor: pal.paper }]}>
+      {[0, 1, 2, 3, 4].map((l) => (
+        <View key={l} style={{ position: 'absolute', left: 4, right: 4, top: 5 + l * 4.5, height: 1, backgroundColor: pal.staff }} />
+      ))}
+      {[10, 26, 42, 58, 74].map((x, i) => (
+        <View key={x} style={{ position: 'absolute', left: x, top: 8 + ((i * 3) % 5) * 2, width: 7, height: 5, borderRadius: 3, backgroundColor: pal.ink }} />
+      ))}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
   root: { flex: 1 },
   floating: {
     position: 'absolute',
     top: 8,
     left: 10,
-    right: 10,
+    right: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  miniTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
-  miniFill: { height: 3 },
+  floatingTrack: { flex: 1 },
   waitBadge: {
     position: 'absolute',
     bottom: 10,
@@ -511,30 +698,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
-  waitText: { fontFamily: font, fontSize: 13 },
-  feedback: { position: 'absolute', alignSelf: 'center', top: '35%', fontFamily: font, fontSize: 26, fontWeight: '700' },
+  waitText: { fontSize: 13 },
+  feedback: { position: 'absolute', alignSelf: 'center', top: '35%', fontSize: 26 },
   manualGap: { height: 2, backgroundColor: '#000000' },
-  scrim: { backgroundColor: 'rgba(0,0,0,0.74)' },
-  panel: { gap: 12, paddingBottom: 24, maxWidth: 1000, width: '100%', alignSelf: 'center' },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  timelineBox: { flex: 1, paddingVertical: 8, paddingHorizontal: 18, gap: 4 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  hymnTitle: { fontFamily: font, fontSize: 13, flex: 1 },
-  result: { fontFamily: font, fontSize: 13 },
-  ticks: { height: 18, justifyContent: 'center' },
-  axis: { position: 'absolute', left: 0, right: 0, height: 1 },
-  tick: { position: 'absolute', width: 1.5, height: 10, borderRadius: 1 },
-  marker: { position: 'absolute', width: 10, height: 20, borderRadius: 5, marginLeft: -5 },
-  tempo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center' },
-  tempoValue: { alignItems: 'center', minWidth: 70 },
-  tempoInput: { fontFamily: font, fontSize: 22, fontWeight: '700', textAlign: 'center', width: 70, padding: 0 },
-  tempoLabel: { fontFamily: font, fontSize: 10 },
-  cards: { flexDirection: 'row', gap: 12 },
-  card: { flex: 1, paddingVertical: 2, paddingHorizontal: 18 },
-  pad: { gap: 10, paddingHorizontal: 18, paddingVertical: 14 },
-  slim: { paddingVertical: 0, paddingHorizontal: 18 },
-  rowValue: { fontFamily: font, fontSize: 14 },
-  chev: { fontFamily: font, fontSize: 22 },
-  heard: { fontFamily: font, fontSize: 16, fontWeight: '700', maxWidth: 360, textAlign: 'right' },
-  footnote: { fontFamily: font, fontSize: 11, textAlign: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timelineBox: { flex: 1, paddingVertical: 6, paddingHorizontal: 16, gap: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  hymnNumber: { fontSize: 15 },
+  hymnTitle: { fontSize: 14, flex: 1 },
+  measure: { fontSize: 11 },
+  result: { fontSize: 13 },
+  body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
+  rail: { width: 150, gap: 4, paddingTop: 2 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 42, borderRadius: 14, paddingRight: 10, overflow: 'hidden' },
+  tabMark: { width: 3, height: 20, borderRadius: 2, marginRight: 2 },
+  tabLabel: { fontSize: 13, flexShrink: 1 },
+  content: { flex: 1 },
+  contentInner: { paddingBottom: 24, maxWidth: 860 },
+  columns: { flexDirection: 'row', gap: 14 },
+  column: { flex: 1, gap: 6 },
+  stack: { gap: 8 },
+  cards: { flexDirection: 'row', gap: 10 },
+  voiceBox: { gap: 8, paddingBottom: 12 },
+  tempoCard: { paddingVertical: 10, gap: 10 },
+  tempoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  tempoValue: { alignItems: 'center', flex: 1 },
+  tempoInput: { fontSize: 30, textAlign: 'center', minWidth: 90, padding: 0, borderBottomWidth: 1 },
+  tempoLabel: { fontSize: 10, marginTop: 4, textAlign: 'center' },
+  sectionChoices: { paddingVertical: 12 },
+  heard: { fontSize: 20, minWidth: 60, textAlign: 'right' },
+  preview: { width: 88, height: 30, borderRadius: 6, overflow: 'hidden' },
 });

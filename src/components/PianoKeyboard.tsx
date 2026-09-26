@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { noteName, type Notation } from '@/music/theory';
-import { font, usePalette, type Palette } from '@/theme';
+import { usePalette, useType, type Palette, type TypeFace } from '@/theme';
 
 import type { KeyboardLayout, KeyRect } from './keyboard-layout';
 
@@ -62,9 +62,11 @@ const Key = memo(function Key({
   label,
   strong,
   palette,
+  type,
   onNoteOn,
   onNoteOff,
 }: {
+  type: TypeFace;
   rect: KeyRect;
   height: number;
   hint?: KeyHint;
@@ -95,12 +97,12 @@ const Key = memo(function Key({
           zIndex: rect.black ? 2 : 1,
         },
       ]}>
-      {mark ? <Text style={[styles.mark, { color: fg }]}>{mark}</Text> : null}
+      {mark ? <Text style={[styles.mark, type.bold, { color: fg }]}>{mark}</Text> : null}
       {hint?.finger && rect.width >= 18 && (state === 'expected-right' || state === 'expected-left') ? (
-        <Text style={[styles.finger, { color: fg }]}>{hint.finger}</Text>
+        <Text style={[styles.finger, type.bold, { color: fg }]}>{hint.finger}</Text>
       ) : null}
       {label ? (
-        <Text numberOfLines={1} style={[styles.label, { fontSize, color: fg }, strong && styles.labelStrong]}>
+        <Text numberOfLines={1} style={[styles.label, strong ? type.bold : type.regular, { fontSize, color: fg }]}>
           {label}
         </Text>
       ) : null}
@@ -124,6 +126,7 @@ export const PianoKeyboard = memo(function PianoKeyboard({
   preferFlats,
 }: Props) {
   const palette = usePalette();
+  const type = useType();
   // Teclas estreitas: só os Dós ganham nome (com a oitava) para não poluir.
   const narrow = layout.whiteWidth < 24;
   return (
@@ -142,6 +145,7 @@ export const PianoKeyboard = memo(function PianoKeyboard({
             label={label}
             strong={isC}
             palette={palette}
+            type={type}
             onNoteOn={onNoteOn}
             onNoteOff={onNoteOff}
           />
@@ -149,7 +153,7 @@ export const PianoKeyboard = memo(function PianoKeyboard({
       })}
       {tag ? (
         <View pointerEvents="none" style={styles.tag}>
-          <Text style={styles.tagText}>{tag}</Text>
+          <Text style={[styles.tagText, type.regular]}>{tag}</Text>
         </View>
       ) : null}
     </View>
@@ -177,10 +181,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 3,
     paddingBottom: 4,
   },
-  label: { fontFamily: font, fontSize: 11 },
-  labelStrong: { fontWeight: '700' },
-  mark: { fontFamily: font, fontSize: 13, fontWeight: '700', marginBottom: 2 },
-  finger: { fontFamily: font, fontSize: 12, fontWeight: '700', marginBottom: 2 },
+  label: { fontSize: 11 },
+  mark: { fontSize: 13, marginBottom: 2 },
+  finger: { fontSize: 12, marginBottom: 2 },
   tag: {
     position: 'absolute',
     top: 2,
@@ -191,5 +194,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(17,17,17,0.85)',
   },
-  tagText: { fontFamily: font, color: '#FFFFFF', fontSize: 9, letterSpacing: 0.6 },
+  tagText: { color: '#FFFFFF', fontSize: 9, letterSpacing: 0.6 },
 });

@@ -70,21 +70,22 @@ export function usePractice({
     [song, hands, tempoFactor, section?.startBeat, section?.endBeat, voices],
   );
 
+  // Contagem de um compasso (em semínimas), entre 1,5 e 4 segundos.
+  const leadIn = Math.min(
+    4,
+    Math.max(1.5, timeline.secondsPerBeat * song.timeSignature[0] * (4 / song.timeSignature[1])),
+  );
   const session = useMemo(
     () =>
       new PracticeSession({
         timeline,
         mode,
-        // Contagem de um compasso (em semínimas), entre 1,5 e 4 segundos.
-        leadIn: Math.min(
-          4,
-          Math.max(1.5, timeline.secondsPerBeat * song.timeSignature[0] * (4 / song.timeSignature[1])),
-        ),
+        leadIn,
         chordPolicy: inputSource === 'mic' ? 'any' : 'all',
         inputLatency: inputSource === 'mic' ? micLatency : 0,
         anyKey,
       }),
-    [timeline, mode, inputSource, micLatency, song.timeSignature, anyKey],
+    [timeline, mode, inputSource, micLatency, leadIn, anyKey],
   );
 
   const time = useSharedValue(session.time);
@@ -167,6 +168,30 @@ export function usePractice({
       synth.allNotesOff();
     };
   }, [session, time]);
+
+  // Depois de arrastar a linha do tempo, o próximo "tocar" faz uma contagem antes do ponto.
+  const pendingPreRoll = useRef(false);
+  // Mudou um ajuste com o hino pausado no meio: a nova sessão continua do mesmo compasso.
+  const carry = useRef<{ beat: number; sectionId?: string } | null>(null);
+  useEffect(() => {
+    const c = carry.current;
+    carry.current = null;
+    if (c && c.sectionId === sectionId) {
+      const t = (c.beat - timeline.originBeat) * timeline.secondsPerBeat;
+      if (t > 0 && t < timeline.duration) {
+        session.seek(t);
+        pendingPreRoll.current = true;
+        time.set(session.time);
+      }
+    }
+    return () => {
+      const resumable = session.status === 'paused' || session.status === 'ready';
+      carry.current =
+        resumable && session.time > 0
+          ? { beat: session.time / timeline.secondsPerBeat + timeline.originBeat, sectionId }
+          : null;
+    };
+  }, [session, timeline, sectionId, time]);
 
   // Entradas do aluno.
   useEffect(() => {
@@ -274,10 +299,25 @@ export function usePractice({
     () => ({
       start: () => {
         synth.unlock();
+        if (pendingPreRoll.current && session.status !== 'playing' && session.status !== 'waiting') {
+          if (session.time > 0) session.seek(session.time, leadIn);
+          time.set(session.time);
+        }
+        pendingPreRoll.current = false;
         session.start();
+      },
+      /** Vai para o instante `t` (s), como arrastar a linha do tempo. */
+      seek: (t: number) => {
+        synth.allNotesOff();
+        session.seek(t);
+        pendingPreRoll.current = t > 0;
+        time.set(session.time);
+        setScore(null);
+        setVersion(session.version);
       },
       pause: () => session.pause(),
       restart: () => {
+        pendingPreRoll.current = false;
         synth.allNotesOff();
         session.reset();
         time.set(session.time);
@@ -285,7 +325,7 @@ export function usePractice({
         setVersion(session.version);
       },
     }),
-    [session, time],
+    [session, time, leadIn],
   );
 
   return {

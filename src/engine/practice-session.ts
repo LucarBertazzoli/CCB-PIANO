@@ -191,6 +191,31 @@ export class PracticeSession {
     }
   }
 
+  /**
+   * Vai para o instante `t` (s) da música, como arrastar a linha do tempo.
+   * As notas antes de `t` ficam de fora e a pontuação recomeça dali.
+   * `preRoll` recua o relógio (contagem antes do ponto escolhido).
+   * Tocando continua tocando; pausado continua pausado.
+   */
+  seek(t: number, preRoll = 0): void {
+    const prev = this._status;
+    const target = Math.max(0, Math.min(t, this.timeline.duration));
+    this.reset();
+    if (target > 0) {
+      const from = target - GROUP_EPSILON;
+      this.activeNotes = this.activeNotes.filter((n) => n.time >= from);
+      this.autoNotes = this.autoNotes.filter((n) => n.time >= from);
+      this.groups = this.groups.filter((g) => g.time >= from);
+      this._time = target - Math.max(0, preRoll);
+    }
+    if (prev === 'playing' || prev === 'waiting') {
+      this.setStatus('playing');
+    } else if (prev === 'paused') {
+      this.resumeStatus = 'playing';
+      this.setStatus('paused');
+    }
+  }
+
   /** Avança o relógio. Chamar a cada quadro com o tempo decorrido (s). */
   tick(dt: number): void {
     if (this._status !== 'playing') return;

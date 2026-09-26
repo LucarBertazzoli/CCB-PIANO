@@ -13,7 +13,7 @@ import type { Song, Voice } from '@/content/types';
 import type { NoteResult } from '@/engine/practice-session';
 import type { TimedNote, Timeline } from '@/engine/timeline';
 import { createSpeller } from '@/music/spelling';
-import { font, usePalette, type Palette } from '@/theme';
+import { usePalette, useType, type Palette } from '@/theme';
 
 /**
  * Partitura no formato do hinário da organista.
@@ -142,6 +142,7 @@ export const HymnScore = memo(function HymnScore({
   showFingers = true,
 }: Props) {
   const pal = usePalette();
+  const type = useType();
   const INK = pal.ink;
   const INK_SOFT = pal.textDim;
   const STAFF_COLOR = pal.staff;
@@ -290,7 +291,7 @@ export const HymnScore = memo(function HymnScore({
       }
       if (i > 0) {
         out.push(
-          <SvgText key={`mn${i}`} x={x0 + 1} y={tTop - gap * 1.3} fontSize={gap * 1.15} fill={INK_SOFT}>
+          <SvgText key={`mn${i}`} x={x0 + 1} y={tTop - gap * 1.3} fontSize={gap * 1.15} fontFamily={type.family} fill={INK_SOFT}>
             {first + 1 + measureOffset}
           </SvgText>,
         );
@@ -298,7 +299,7 @@ export const HymnScore = memo(function HymnScore({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [L, song.keySignature, song.timeSignature, song.showTimeSignature, measureOffset, pal]);
+  }, [L, song.keySignature, song.timeSignature, song.showTimeSignature, measureOffset, pal, type]);
 
   // ------------------------------------------------------------- notas
   const spellers: Record<StaffName, ReturnType<typeof createSpeller>> = {
@@ -351,7 +352,7 @@ export const HymnScore = memo(function HymnScore({
         {base < 4 ? <Line x1={stemX} x2={stemX} y1={cy} y2={stemEnd} stroke={color} strokeWidth={1.2} /> : null}
         {base <= 0.5 ? flag(stemX, stemEnd, up, base <= 0.25 ? 2 : 1, gap, color) : null}
         {showFingers && n.finger ? (
-          <SvgText x={cx - 3} y={up ? cy + gap * 1.9 : cy - gap * 1.1} fontSize={gap * 1.15} fontWeight="bold" fill={INK_SOFT}>
+          <SvgText x={cx - 3} y={up ? cy + gap * 1.9 : cy - gap * 1.1} fontSize={gap * 1.15} fontFamily={type.boldFamily} fontWeight={type.boldWeight === '700' ? 'bold' : 'normal'} fill={INK_SOFT}>
             {n.finger}
           </SvgText>
         ) : null}
@@ -398,13 +399,13 @@ export const HymnScore = memo(function HymnScore({
     <View style={[styles.paper, { width, height, backgroundColor: pal.paper }]}>
       <Animated.ScrollView ref={scrollRef} contentContainerStyle={{ height: contentHeight }} showsVerticalScrollIndicator>
         <View style={styles.header}>
-          <Text style={[styles.headerNumber, { color: INK }]}>{song.hymnNumber ?? ''}</Text>
-          <Text style={[styles.headerTitle, { color: INK }]} numberOfLines={1}>
+          <Text style={[styles.headerNumber, type.bold, { color: INK }]}>{song.hymnNumber ?? ''}</Text>
+          <Text style={[styles.headerTitle, type.bold, { color: INK }]} numberOfLines={1}>
             {song.title}
           </Text>
           <View style={{ alignItems: 'flex-end' }}>
-            {song.composer ? <Text style={[styles.headerSmall, { color: INK }]}>{song.composer}</Text> : null}
-            <Text style={[styles.headerSmall, { color: INK }]}>({tempoText})</Text>
+            {song.composer ? <Text style={[styles.headerSmall, type.regular, { color: INK }]}>{song.composer}</Text> : null}
+            <Text style={[styles.headerSmall, type.regular, { color: INK }]}>({tempoText})</Text>
           </View>
         </View>
         <Animated.View
@@ -473,9 +474,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  headerNumber: { fontFamily: font, fontSize: 20, fontWeight: '700', minWidth: 20 },
-  headerTitle: { fontFamily: font, fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
-  headerSmall: { fontFamily: font, fontSize: 10 },
+  headerNumber: { fontSize: 20, minWidth: 20 },
+  headerTitle: { fontSize: 16, flex: 1, textAlign: 'center' },
+  headerSmall: { fontSize: 10 },
   cursor: {
     position: 'absolute',
     left: 0,

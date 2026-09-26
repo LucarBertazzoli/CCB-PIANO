@@ -6,7 +6,8 @@ import type { NoteResult } from '@/engine/practice-session';
 import type { TimedNote } from '@/engine/timeline';
 import { noteName, type Notation } from '@/music/theory';
 import type { NoteLabelMode } from '@/store/settings';
-import { font, usePalette, type Palette } from '@/theme';
+import { usePalette, useType, type Palette, type TypeFace } from '@/theme';
+import { readableOn } from '@/theme/color';
 
 import type { KeyboardLayout } from './keyboard-layout';
 
@@ -33,11 +34,11 @@ function noteColors(p: Palette, note: TimedNote, result: NoteResult) {
   const base = note.hand === 'right' ? p.noteRight : p.noteLeft;
   switch (result) {
     case 'hit':
-      return { bg: p.noteHit, border: p.noteHit, fg: '#FFFFFF' };
+      return { bg: p.noteHit, border: p.noteHit, fg: readableOn(p.noteHit) };
     case 'missed':
       return { bg: p.noteMissed, border: base, fg: base };
     default:
-      return { bg: base, border: base, fg: p.noteText };
+      return { bg: base, border: base, fg: readableOn(base) };
   }
 }
 
@@ -49,8 +50,10 @@ const NoteBar = memo(function NoteBar({
   result,
   label,
   palette,
+  type,
 }: {
   palette: Palette;
+  type: TypeFace;
   note: TimedNote;
   x: number;
   width: number;
@@ -74,7 +77,7 @@ const NoteBar = memo(function NoteBar({
         },
       ]}>
       {label ? (
-        <Text numberOfLines={1} style={[styles.noteLabel, { color: c.fg, fontSize: Math.min(13, width * 0.4) }]}>
+        <Text numberOfLines={1} style={[type.bold, { color: c.fg, fontSize: Math.min(13, width * 0.4) }]}>
           {label}
         </Text>
       ) : null}
@@ -100,6 +103,7 @@ export const NoteHighway = memo(function NoteHighway({
   preferFlats,
 }: Props) {
   const palette = usePalette();
+  const type = useType();
   const scrollStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: height + time.value * pps }],
   }));
@@ -141,6 +145,7 @@ export const NoteHighway = memo(function NoteHighway({
               result={resultOf(n.id)}
               label={n.active ? label : undefined}
               palette={palette}
+              type={type}
             />
           );
         })}
@@ -174,10 +179,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 3,
     overflow: 'hidden',
-  },
-  noteLabel: {
-    fontFamily: font,
-    fontWeight: '700',
   },
   hitLine: {
     position: 'absolute',

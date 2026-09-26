@@ -14,10 +14,20 @@ CCB), com modo colorido opcional. São só duas telas:
 1. **Entrada** — um campo para digitar o número ou o nome, a escolha entre
    *Hinos* e *Coros* e uma roda que gira até o número certo.
 2. **Tocar** — o hino abre direto. Ao pausar, aparece o painel (inspirado no
-   Artie) com tudo: quem toca cada mão e a pedaleira (App/Você), modo espera,
-   acompanhamento, andamento digitável (− 72 +), metrônomo, trecho/repetição,
-   vozes, Notas/Partitura, reconhecimento de notas (tela, MIDI, microfone) e
-   teclado/aparência (manuais, pedaleira, tamanho das teclas, cores).
+   Artie): em cima, a **linha do tempo arrastável** (toque ou arraste para ir a
+   qualquer compasso; ao tocar de novo há uma contagem antes do ponto) e os
+   ajustes em abas:
+   - **Prática** — quem toca cada mão e a pedaleira (App/Você), vozes, modo
+     espera, acompanhamento, andamento digitável (− 72 +, 50/75/100%),
+     metrônomo, trecho e repetição;
+   - **Visualização** — Notas caindo ou Partitura, nomes das notas, teclado;
+   - **Instrumento** — órgão ou piano, manuais, pedaleira, tamanho das teclas,
+     volume;
+   - **Ouvir você** — tela, teclado MIDI ou microfone, com teste ao vivo;
+   - **Aparência** — fonte (Verdana, serifada ou OpenDyslexic) e cores: preto e
+     branco (padrão) ou colorido, com a cor de cada parte (destaque, mãos,
+     pedaleira, acerto, erro, fundo e papel) escolhida em amostras ou por
+     código (#RRGGBB).
 
 ## O que já funciona
 
@@ -44,6 +54,11 @@ CCB), com modo colorido opcional. São só duas telas:
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
 - **Som** de piano e órgão sintetizado (sem arquivos de áudio), metrônomo.
+
+Fontes incluídas em `assets/fonts/`: OpenDyslexic (com a altura ajustada para
+os acentos do português) e DejaVu Sans (substituta da Verdana no Android). A
+serifada é a Source Serif 4 (`@expo-google-fonts/source-serif-4`); a fonte
+serifada do Claude não é livre, então usamos a mais parecida.
 
 ## Rodando
 
@@ -91,8 +106,9 @@ src/
   audio/synth.ts       Sintetizador de piano/órgão
   components/          Teclado, pedaleira, notas caindo, partitura (HymnScore)
   music/spelling.ts    Grafia das notas (armadura, ♯ ♭ ♮ por compasso)
-  features/player/     Tela de tocar e o painel de ajustes
-  theme/               Preto e branco (padrão) e colorido; fonte Verdana
+  features/player/     Tela de tocar, linha do tempo e o painel de ajustes
+  features/settings/   Aparência (fonte e cores), também na tela inicial
+  theme/               Paletas (preto e branco ou cores escolhidas) e fontes
   store/               Preferências (persistidas)
 ```
 
