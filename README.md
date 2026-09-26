@@ -62,7 +62,12 @@ No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
 - **Trecho** por linha do hinário, com repetição sem parar.
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
-- **Som** de piano e órgão sintetizado (sem arquivos de áudio), metrônomo.
+- **Som**: piano com gravações reais de um piano de cauda (Salamander Grand
+  Piano, CC BY 3.0 — `assets/audio/piano/LICENSE.txt`); órgão com tubos
+  sintetizados (Principal 8' + 4' + 2', coro, sopro do ataque, Subbaixo 16'
+  nos graves) e reverberação de igreja; metrônomo.
+- **Teclados do tamanho real**: manuais de órgão com 61 teclas (Dó1–Dó6),
+  pedaleira de 32 pedais (Dó1–Sol3) e piano de 88 teclas.
 
 Fontes incluídas em `assets/fonts/`: OpenDyslexic (com a altura ajustada para
 os acentos do português) e DejaVu Sans (substituta da Verdana no Android). A

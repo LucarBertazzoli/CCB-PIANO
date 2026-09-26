@@ -1,0 +1,8 @@
+Salamander Grand Piano V3 (Yamaha C5)
+Autor: Alexander Holm — https://archive.org/details/SalamanderGrandPianoV3
+Licença: Creative Commons Attribution 3.0 (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/
+
+Arquivos MP3 (uma nota a cada 3 semitons, de A0 a C8) na versão distribuída
+pelo projeto Tone.js (https://tonejs.github.io/audio/salamander/). As notas
+intermediárias são obtidas mudando levemente a velocidade de reprodução.

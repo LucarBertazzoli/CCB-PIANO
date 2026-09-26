@@ -82,7 +82,8 @@ const Key = memo(function Key({
   const state = hint?.state ?? 'idle';
   const { bg, fg } = keyStyle(palette, rect.black, state);
   const keyHeight = rect.black ? height * 0.62 : height;
-  const fontSize = Math.max(8, Math.min(12, rect.width * 0.36));
+  const narrow = rect.width < 22;
+  const fontSize = narrow ? 7.5 : Math.max(8, Math.min(12, rect.width * 0.36));
   const mark = state === 'correct' ? 'check' : state === 'wrong' ? 'close' : null;
   return (
     <KeyPad
@@ -108,7 +109,10 @@ const Key = memo(function Key({
         <Text style={[styles.finger, type.bold, { color: fg }]}>{hint.finger}</Text>
       ) : null}
       {label ? (
-        <Text numberOfLines={1} style={[styles.label, strong ? type.bold : type.regular, { fontSize, color: fg }]}>
+        <Text
+          numberOfLines={narrow ? undefined : 1}
+          // Tecla estreita (piano de 88 teclas): o nome pode passar um pouco da tecla.
+          style={[styles.label, strong ? type.bold : type.regular, { fontSize, color: fg }, narrow && styles.labelWide]}>
           {label}
         </Text>
       ) : null}
@@ -188,6 +192,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   label: { fontSize: 11 },
+  labelWide: { width: 28, textAlign: 'center' },
   mark: { marginBottom: 2 },
   finger: { fontSize: 12, marginBottom: 2 },
   tag: {

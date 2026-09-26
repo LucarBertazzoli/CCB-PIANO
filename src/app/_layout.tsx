@@ -55,7 +55,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    synth.instrument = instrument;
+    synth.setInstrument(instrument);
     synth.setVolume(volume);
   }, [instrument, volume]);
 
