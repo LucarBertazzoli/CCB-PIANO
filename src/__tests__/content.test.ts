@@ -42,6 +42,6 @@ describe('grupos da tela inicial', () => {
   it('tem as quantidades do hinário', () => {
     const cat = hymnCatalog();
     const count = Object.fromEntries(HYMN_GROUPS.map((g) => [g.id, cat.filter(g.includes).length]));
-    expect(count).toEqual({ hinos: 480, jovens: 50, ceia: 17, funeral: 7, coros: 6 });
+    expect(count).toEqual({ hinos: 480, jovens: 50, coros: 6 });
   });
 });

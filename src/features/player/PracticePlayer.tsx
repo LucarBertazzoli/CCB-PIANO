@@ -19,7 +19,7 @@ import { useSettings } from '@/store/settings';
 import { usePalette, useType } from '@/theme';
 import { withAlpha } from '@/theme/color';
 
-import { Choices, Glass, Label, MultiChoices, OptionCard, RoundButton, Row, SectionTitle, Segmented, Toggle } from './controls';
+import { Glass, Label, MultiChoices, OptionCard, RoundButton, Row, SectionTitle, Segmented, Toggle } from './controls';
 import { measureAt, Scrubber } from './Scrubber';
 import { usePractice } from './use-practice';
 
@@ -98,8 +98,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const [waitMode, setWaitMode] = useState(true);
   const [bpm, setBpm] = useState(song.tempo);
   const [bpmText, setBpmText] = useState(String(song.tempo));
-  const [sectionId, setSectionId] = useState<string | undefined>(undefined);
-  const [loop, setLoop] = useState(false);
 
   const voices = useMemo<Voice[]>(() => {
     const chosen = customVoices ?? (Object.keys(parts) as Part[]).filter((k) => parts[k]).flatMap((k) => PART_VOICES[k]);
@@ -112,7 +110,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     hands: 'both',
     mode,
     tempoFactor: bpm / song.tempo,
-    sectionId,
     voices: voices.length ? voices : undefined,
   });
 
@@ -127,8 +124,8 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const [tab, setTab] = useState<Tab>('practice');
   const [showVoices, setShowVoices] = useState(false);
   const playing = p.status === 'playing' || p.status === 'waiting';
-  const { status, restart, start } = p;
-  const panel = panelState || (status === 'finished' && !loop);
+  // Ao terminar o hino, o painel volta sozinho.
+  const panel = panelState || p.status === 'finished';
   const openPanel = () => {
     p.pause();
     setPanel(true);
@@ -138,13 +135,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     if (p.status === 'finished') p.restart();
     p.start();
   };
-
-  // Ao terminar: repete o trecho (se pedido); senão o painel volta sozinho.
-  useEffect(() => {
-    if (status !== 'finished' || !loop) return;
-    restart();
-    start();
-  }, [status, loop, restart, start]);
 
   // ------------------------------------------------------------- entrada (tela/MIDI/microfone)
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
@@ -262,10 +252,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const measures = p.timeline.measureStarts;
   const totalMeasures = Math.max(1, measures.length - 1);
   const currentMeasure = measureAt(measures, p.progress * (measures[measures.length - 1] || 0));
-  // Num trecho, a numeração continua a do hino inteiro.
-  const measureOffset = sectionId
-    ? Math.max(0, (song.measures ?? []).findIndex((b) => b >= p.timeline.originBeat - 1e-6))
-    : 0;
 
   const setPart = (part: Part, you: boolean) => {
     setCustomVoices(null);
@@ -364,23 +350,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           </Row>
         </Glass>
 
-        {song.sections?.length ? (
-          <>
-            <SectionTitle>Trecho</SectionTitle>
-            <Glass>
-              <View style={s.sectionChoices}>
-                <Choices<string>
-                  options={[{ value: '', label: 'Hino inteiro' }, ...song.sections.map((x) => ({ value: x.id, label: x.label }))]}
-                  value={sectionId ?? ''}
-                  onChange={(v) => setSectionId(v || undefined)}
-                />
-              </View>
-              <Row label="Repetir sem parar" last>
-                <Toggle value={loop} onChange={setLoop} label="Repetir sem parar" />
-              </Row>
-            </Glass>
-          </>
-        ) : null}
       </View>
     </View>
   );
@@ -644,7 +613,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
                   </View>
                 ) : (
                   <Text style={[type.regular, s.measure, { color: pal.textDim }]}>
-                    Compasso {currentMeasure + 1 + measureOffset} de {totalMeasures + measureOffset}
+                    Compasso {currentMeasure + 1} de {totalMeasures}
                   </Text>
                 )}
               </View>
@@ -803,7 +772,6 @@ const s = StyleSheet.create({
   tempoValue: { alignItems: 'center', flex: 1 },
   tempoInput: { fontSize: 30, textAlign: 'center', minWidth: 90, padding: 0, borderBottomWidth: 1 },
   tempoLabel: { fontSize: 10, marginTop: 4, textAlign: 'center' },
-  sectionChoices: { paddingVertical: 12 },
   heard: { fontSize: 20, minWidth: 60, textAlign: 'right' },
   preview: { width: 88, height: 30, borderRadius: 6, overflow: 'hidden' },
 });

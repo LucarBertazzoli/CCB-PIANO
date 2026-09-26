@@ -19,7 +19,7 @@ CCB), com modo colorido opcional. São só duas telas:
    ajustes em abas:
    - **Prática** — quem toca cada mão e a pedaleira (App/Você), vozes, modo
      espera, acompanhamento, andamento digitável (− 72 +, 50/75/100%),
-     metrônomo, trecho e repetição;
+     metrônomo;
    - **Visualização** — Notas caindo ou Partitura, nomes das notas, teclado;
    - **Instrumento** — órgão ou piano, manuais, pedaleira, tamanho das teclas,
      volume;
@@ -59,7 +59,6 @@ No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
   as teclas que lhe cabem.
 - **Modos**: só ouvir (o app toca tudo), modo espera (as notas esperam o aluno —
   acordes exigem todas as notas) e no andamento (precisão e estrelas).
-- **Trecho** por linha do hinário, com repetição sem parar.
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
 - **Som**: piano com gravações reais de um piano de cauda (Salamander Grand
@@ -110,6 +109,23 @@ npm run build:web    # gera a pasta dist/
   o arquivo `public/_redirects` faz o mesmo redirecionamento.
 - **Domínio próprio**: registre (ex.: registro.br para `.com.br`/`.org.br`) e
   aponte o DNS para o serviço escolhido, nas configurações de domínio dele.
+
+## Publicar na App Store e no Google Play (sem Mac)
+
+O EAS (serviço da Expo) compila o app na nuvem e envia para as lojas; funciona
+no Windows. O `eas.json` já tem os perfis `preview` (instalar em aparelhos de
+teste) e `production` (lojas).
+
+1. Crie a conta de desenvolvedor da Apple (paga, anual) e, para Android, a do
+   Google Play (taxa única).
+2. Em `app.json`, defina o identificador do app: `ios.bundleIdentifier` e
+   `android.package` (ex.: `com.seunome.hinario`).
+3. `npx eas-cli@latest login`
+4. `npx eas-cli@latest build -p ios --profile production` (o EAS cria os
+   certificados da Apple para você) e `-p android` para o Android.
+5. `npx eas-cli@latest submit -p ios` envia para o App Store Connect
+   (TestFlight); depois preencha a página do app e mande para revisão no site
+   do App Store Connect.
 
 ## Arquitetura
 
