@@ -9,7 +9,8 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
@@ -52,7 +53,12 @@
           "androidForegroundService": false
         }
       ],
-      "expo-screen-orientation"
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "LANDSCAPE"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

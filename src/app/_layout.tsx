@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { synth } from '@/audio/synth';
+import { RotateGate } from '@/components/RotateGate';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { useSettings } from '@/store/settings';
 
@@ -64,11 +65,12 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
           <StatusBar style="light" hidden />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: background }, animation: 'fade' }}>
+          <Stack screenOptions={{ headerShown: false, orientation: 'landscape', contentStyle: { backgroundColor: background }, animation: 'fade' }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="tocar/[songId]" options={{ gestureEnabled: false }} />
           </Stack>
           {hydrated && !onboarded ? <Onboarding /> : null}
+          <RotateGate />
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
