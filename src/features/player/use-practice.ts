@@ -81,7 +81,7 @@ export function usePractice({
         timeline,
         mode,
         leadIn,
-        chordPolicy: inputSource === 'mic' ? 'any' : 'all',
+        chordPolicy: 'all',
         inputLatency: inputSource === 'mic' ? micLatency : 0,
         anyKey,
       }),
@@ -102,12 +102,14 @@ export function usePractice({
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const feedbackId = useRef(0);
 
+  const inputSourceRef = useRef(inputSource);
   const accompanimentRef = useRef(playAccompaniment);
   const metronomeRef = useRef(metronome);
   useEffect(() => {
+    inputSourceRef.current = inputSource;
     accompanimentRef.current = playAccompaniment;
     metronomeRef.current = metronome;
-  }, [playAccompaniment, metronome]);
+  }, [inputSource, playAccompaniment, metronome]);
 
   // Eventos do motor → som e feedback visual.
   // Nova sessão (mudou mão/modo/andamento): reinicia o estado da tela.
@@ -221,6 +223,7 @@ export function usePractice({
     let lastBeat = Math.floor(session.time / timeline.secondsPerBeat);
     let lastProgress = -1;
     let lastExpected = '';
+    let lastGuide = '';
     const beatsPerBar = Math.max(1, Math.round(song.timeSignature[0] * (4 / song.timeSignature[1])));
 
     const loop = (now: number) => {
@@ -248,10 +251,25 @@ export function usePractice({
         lastExpected = expected;
         setExpectedKey(expected);
       }
+      // Microfone: diz quais notas procurar (reconhece acordes do órgão).
+      if (inputSourceRef.current === 'mic') {
+        const active = session.status === 'playing' || session.status === 'waiting';
+        const guide = active
+          ? session.listenFor().map((n) => ({ id: n.id, midi: n.midi, restrike: session.isRepeat(n) }))
+          : null;
+        const key = guide ? guide.map((g) => g.id).join(',') : 'livre';
+        if (key !== lastGuide) {
+          lastGuide = key;
+          inputHub.setGuide(guide);
+        }
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      inputHub.setGuide(null);
+    };
   }, [session, time, timeline.secondsPerBeat, song.timeSignature]);
 
   // Dicas nos teclados: teclas esperadas (cor do manual + dedo), acertos e erros.

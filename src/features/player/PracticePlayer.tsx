@@ -70,7 +70,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const organ = settings.instrument === 'organ';
 
   // ------------------------------------------------------------- o que o aluno toca
-  const [parts, setParts] = useState<Record<Part, boolean>>({ right: true, left: true, pedal: false });
+  const [parts, setParts] = useState<Record<Part, boolean>>({ right: true, left: true, pedal: true });
   const [customVoices, setCustomVoices] = useState<Voice[] | null>(null);
   const [waitMode, setWaitMode] = useState(true);
   const [bpm, setBpm] = useState(song.tempo);

@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
 import { getSong } from '@/content';
-import { hymnCatalog } from '@/content/hymnal';
+import { HYMN_GROUPS, hymnCatalog } from '@/content/hymnal';
 
 describe('hinário', () => {
   it('todos os hinos e coros carregam com as 4 vozes e compassos coerentes', () => {
@@ -35,5 +35,13 @@ describe('layout do teclado', () => {
     const cs = layout.byMidi.get(61)!;
     expect(cs.x).toBeGreaterThan(c.x);
     expect(cs.x).toBeLessThan(c.x + c.width);
+  });
+});
+
+describe('grupos da tela inicial', () => {
+  it('tem as quantidades do hinário', () => {
+    const cat = hymnCatalog();
+    const count = Object.fromEntries(HYMN_GROUPS.map((g) => [g.id, cat.filter(g.includes).length]));
+    expect(count).toEqual({ hinos: 480, jovens: 50, ceia: 17, funeral: 7, coros: 6 });
   });
 });

@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Icon } from '@/components/Icon';
-import { hymnCatalog, type HymnEntry } from '@/content/hymnal';
-import { RoundButton, Segmented } from '@/features/player/controls';
+import { HYMN_GROUPS, hymnCatalog, type HymnEntry, type HymnGroup } from '@/content/hymnal';
+import { RoundButton } from '@/features/player/controls';
 import { AppearanceSettings } from '@/features/settings/AppearanceSettings';
 import { useSettings } from '@/store/settings';
 import { usePalette, useType } from '@/theme';
@@ -27,16 +27,14 @@ import { withAlpha } from '@/theme/color';
  * a roda que gira até o hino. Os últimos hinos abertos ficam à mão.
  */
 
-type Kind = HymnEntry['kind'];
-
 const ITEM = 46;
 const VISIBLE = 5;
 const CATALOG = hymnCatalog();
 const BY_ID = new Map(CATALOG.map((h) => [h.songId, h]));
-const COUNT: Record<Kind, number> = {
-  hino: CATALOG.filter((h) => h.kind === 'hino').length,
-  coro: CATALOG.filter((h) => h.kind === 'coro').length,
-};
+const GROUP_LISTS = Object.fromEntries(HYMN_GROUPS.map((g) => [g.id, CATALOG.filter(g.includes)])) as Record<
+  HymnGroup,
+  HymnEntry[]
+>;
 
 /** Remove acentos e caixa para a busca por nome. */
 function normalize(s: string) {
@@ -62,13 +60,15 @@ export default function Home() {
   const t = useType();
   const recentIds = useSettings((s) => s.recent);
   const [look, setLook] = useState(false);
-  const [kind, setKind] = useState<Kind>('hino');
+  const [group, setGroup] = useState<HymnGroup>('hinos');
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [index, setIndex] = useState(0);
   const wheel = useRef<ScrollView>(null);
+  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const list = useMemo(() => CATALOG.filter((h) => h.kind === kind), [kind]);
+  const list = GROUP_LISTS[group];
+  const isCoro = group === 'coros';
   const recent = recentIds.map((id) => BY_ID.get(id)).filter((h): h is HymnEntry => !!h).slice(0, 4);
 
   const results = useMemo(() => {
@@ -96,15 +96,22 @@ export default function Home() {
     if (i >= 0) scrollTo(i);
   };
 
-  const changeKind = (k: Kind) => {
-    setKind(k);
+  const changeGroup = (g: HymnGroup) => {
+    setGroup(g);
     setIndex(0);
+    setQuery('');
     wheel.current?.scrollTo({ y: 0, animated: false });
   };
 
+  // A roda sempre para certinho num hino (no navegador o "snap" nativo falha).
   const onWheelScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.max(0, Math.min(list.length - 1, Math.round(e.nativeEvent.contentOffset.y / ITEM)));
+    const y = e.nativeEvent.contentOffset.y;
+    const i = Math.max(0, Math.min(list.length - 1, Math.round(y / ITEM)));
     if (i !== index) setIndex(i);
+    if (snapTimer.current) clearTimeout(snapTimer.current);
+    snapTimer.current = setTimeout(() => {
+      if (Math.abs(y - i * ITEM) > 0.5) wheel.current?.scrollTo({ y: i * ITEM, animated: true });
+    }, 110);
   };
 
   const submit = () => {
@@ -141,7 +148,7 @@ export default function Home() {
               onSubmitEditing={submit}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder={kind === 'hino' ? 'Número ou nome do hino' : 'Número ou nome do coro'}
+              placeholder={isCoro ? 'Número ou nome do coro' : 'Número ou nome do hino'}
               placeholderTextColor={p.textFaint}
               returnKeyType="go"
               autoCorrect={false}
@@ -158,16 +165,21 @@ export default function Home() {
             </Pressable>
           </View>
 
-          <View style={styles.kindRow}>
-            <Segmented
-              compact
-              options={[
-                { value: 'hino', label: `Hinos  ${COUNT.hino}` },
-                { value: 'coro', label: `Coros  ${COUNT.coro}` },
-              ]}
-              value={kind}
-              onChange={(v) => changeKind(v as Kind)}
-            />
+          <View style={styles.groups}>
+            {HYMN_GROUPS.map((g) => {
+              const on = g.id === group;
+              return (
+                <Pressable
+                  key={g.id}
+                  onPress={() => changeGroup(g.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={[styles.group, { backgroundColor: on ? p.primary : 'transparent', borderColor: on ? p.primary : p.border }]}>
+                  <Text style={[on ? t.bold : t.regular, styles.groupLabel, { color: on ? p.primaryText : p.text }]}>{g.label}</Text>
+                  <Text style={[t.regular, styles.groupCount, { color: on ? p.primaryText : p.textDim }]}>{GROUP_LISTS[g.id].length}</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           {hasQuery ? (
@@ -194,7 +206,7 @@ export default function Home() {
                 </ScrollView>
               ) : (
                 <Text style={[t.regular, styles.empty, { color: p.textDim }]}>
-                  Nenhum {kind} com “{query.trim()}”.
+                  Nada encontrado com “{query.trim()}”.
                 </Text>
               )}
             </View>
@@ -226,8 +238,10 @@ export default function Home() {
 
         {/* Direita: roda que gira até o hino */}
         <Animated.View entering={FadeIn.duration(500).delay(120)} style={styles.right}>
-          <View style={[styles.wheelCard, { backgroundColor: p.bg, borderColor: p.border }]}>
-            <View pointerEvents="none" style={[styles.band, { top: pad, backgroundColor: p.surfaceStrong }]} />
+          <View style={[styles.wheelCard, { backgroundColor: p.bg }]}>
+            <View pointerEvents="none" style={[styles.band, { top: pad, backgroundColor: p.surfaceStrong }]}>
+              <View style={[styles.bandMark, { backgroundColor: p.primary }]} />
+            </View>
             <ScrollView
               ref={wheel}
               showsVerticalScrollIndicator={false}
@@ -338,7 +352,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   // Altura fixa: a lista de resultados cresce para baixo sem empurrar o título.
-  left: { flex: 1, gap: 14, height: 300, justifyContent: 'flex-start', paddingTop: 24 },
+  left: { flex: 1, gap: 12, height: 310, justifyContent: 'flex-start', paddingTop: 16 },
   heading: { fontSize: 28, letterSpacing: -0.3, marginBottom: 4 },
   field: {
     flexDirection: 'row',
@@ -352,7 +366,10 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 16, height: '100%', outlineStyle: 'none' } as never,
   go: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  kindRow: { flexDirection: 'row' },
+  groups: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  group: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, height: 30 },
+  groupLabel: { fontSize: 13 },
+  groupCount: { fontSize: 11 },
   results: { borderRadius: 18, borderWidth: 1, maxHeight: 134, overflow: 'hidden' },
   result: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, height: 44 },
   resultNumber: { fontSize: 14, minWidth: 30 },
@@ -375,8 +392,9 @@ const styles = StyleSheet.create({
   chipTitle: { fontSize: 12, flexShrink: 1 },
   tip: { fontSize: 12, marginLeft: 4 },
   right: { width: 280, gap: 12 },
-  wheelCard: { height: ITEM * VISIBLE, borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
-  band: { position: 'absolute', left: 8, right: 8, height: ITEM, borderRadius: 14 },
+  wheelCard: { height: ITEM * VISIBLE, borderRadius: 24, overflow: 'hidden' },
+  band: { position: 'absolute', left: 6, right: 6, height: ITEM, borderRadius: 14, justifyContent: 'center' },
+  bandMark: { width: 3, height: 20, borderRadius: 2, marginLeft: 8 },
   wheelItem: { height: ITEM, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 22 },
   wheelNumber: { fontSize: 20, minWidth: 40, textAlign: 'right' },
   wheelTitle: { fontSize: 13, flex: 1 },

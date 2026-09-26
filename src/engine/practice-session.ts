@@ -26,8 +26,9 @@ export interface SessionConfig {
   /** Segundos de contagem antes da primeira nota. */
   leadIn?: number;
   /**
-   * `all`: acordes exigem todas as notas (teclado MIDI / toque).
-   * `any`: basta uma nota do acorde (microfone, que só detecta uma nota por vez).
+   * `all`: acordes exigem todas as notas (padrão, inclusive no microfone:
+   *   cada nota ouvida é marcada e as outras continuam esperando).
+   * `any`: basta uma nota do acorde.
    */
   chordPolicy?: 'all' | 'any';
   /** Janela (s) para contar acerto no modo ritmo. */
@@ -69,6 +70,7 @@ export class PracticeSession {
   private autoIdx = 0;
   private activeNotes: TimedNote[] = [];
   private missIdx = 0;
+  private repeats = new Set<string>();
 
   private hits = 0;
   private perfect = 0;
@@ -132,6 +134,28 @@ export class PracticeSession {
     return this.timeline.notes.filter((n) => n.time <= t && t < n.time + n.duration);
   }
 
+  /**
+   * Notas que o microfone deve procurar agora: no modo espera, as do acorde
+   * esperado; no modo ritmo, as que começam em breve ou acabaram de começar.
+   */
+  listenFor(ahead = 0.06): TimedNote[] {
+    if (this.mode === 'demo') return [];
+    if (this.mode === 'wait') return this.expectedNotes();
+    const t = this._time - this.cfg.inputLatency;
+    const out: TimedNote[] = [];
+    for (let i = this.missIdx; i < this.activeNotes.length; i++) {
+      const n = this.activeNotes[i];
+      if (n.time - this._time > ahead) break;
+      if (t - n.time <= this.cfg.hitWindow && this.resultOf(n.id) === 'pending') out.push(n);
+    }
+    return out;
+  }
+
+  /** A nota repete a anterior da mesma voz (precisa soltar e tocar de novo)? */
+  isRepeat(note: TimedNote): boolean {
+    return this.repeats.has(note.id);
+  }
+
   score(): ScoreSummary {
     const total = this.activeNotes.length;
     const base = { total, hits: this.hits, perfect: this.perfect, wrong: this.wrong };
@@ -163,6 +187,16 @@ export class PracticeSession {
     this.autoNotes = this.timeline.notes.filter((n) => demo || !n.active);
     this.autoIdx = 0;
     this.missIdx = 0;
+
+    // Notas que repetem a anterior da mesma voz, sem pausa.
+    this.repeats.clear();
+    const lastOf = new Map<string, TimedNote>();
+    for (const n of this.timeline.notes) {
+      const key = `${n.hand}:${n.voice ?? ''}`;
+      const prev = lastOf.get(key);
+      if (prev && prev.midi === n.midi && Math.abs(prev.time + prev.duration - n.time) < 0.05) this.repeats.add(n.id);
+      lastOf.set(key, n);
+    }
 
     this.groups = [];
     for (const n of this.activeNotes) {

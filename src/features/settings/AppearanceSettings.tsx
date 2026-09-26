@@ -68,8 +68,7 @@ export function AppearanceSettings() {
       <Glass>
         <Row
           label="Modo de cor"
-          hint={settings.colorMode === 'mono' ? 'Preto e branco, como o hinário.' : 'Escolha a cor de cada parte abaixo.'}
-          last={settings.colorMode === 'mono'}>
+          hint={settings.colorMode === 'mono' ? 'Preto e branco, como o hinário, com a cor de destaque.' : 'Escolha a cor de cada parte abaixo.'}>
           <Segmented
             options={[
               { value: 'mono', label: 'Preto e branco' },
@@ -79,6 +78,16 @@ export function AppearanceSettings() {
             onChange={(v) => settings.set({ colorMode: v as 'mono' | 'color' })}
           />
         </Row>
+
+        {settings.colorMode === 'mono' ? (
+          <Row label="Cor de destaque" hint="Botões, seleções e linha do tempo" stacked last>
+            <View style={styles.swatches}>
+              {VIVID.map((c) => (
+                <Swatch key={c} color={c} size={24} label={`Destaque ${c}`} selected={c === colors.accent} onPress={() => setColor('accent', c)} />
+              ))}
+            </View>
+          </Row>
+        ) : null}
 
         {settings.colorMode === 'color' ? (
           <View style={styles.colorArea}>

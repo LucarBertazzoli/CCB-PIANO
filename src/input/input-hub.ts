@@ -1,6 +1,6 @@
 import { MicInput } from './mic-input';
 import { MidiInput } from './midi-input';
-import type { InputSource, InputSourceKind, NoteInputEvent } from './types';
+import type { GuideNote, InputSource, InputSourceKind, NoteInputEvent } from './types';
 
 type Listener = (e: NoteInputEvent) => void;
 
@@ -15,6 +15,7 @@ class InputHub {
   private _kind: InputSourceKind = 'touch';
   private _error: string | null = null;
   private statusListeners = new Set<() => void>();
+  private guide: GuideNote[] | null = null;
 
   get kind(): InputSourceKind {
     return this._kind;
@@ -49,18 +50,28 @@ class InputHub {
     for (const fn of this.listeners) fn(e);
   };
 
+  /**
+   * Notas que o aluno deve tocar agora (o microfone confere cada uma, o que
+   * permite reconhecer acordes). `null` quando nenhum hino está tocando.
+   */
+  setGuide(notes: GuideNote[] | null): void {
+    this.guide = notes;
+    this.external?.setGuide?.(notes);
+  }
+
   /** Liga a fonte escolhida. O teclado na tela funciona sempre. */
   async use(kind: InputSourceKind, opts: { micSensitivity?: number } = {}): Promise<void> {
     this.stopExternal();
     this._kind = kind;
     this._error = null;
     if (kind !== 'touch') {
-      const source = kind === 'midi' ? new MidiInput() : new MicInput(opts.micSensitivity);
+      const source: InputSource = kind === 'midi' ? new MidiInput() : new MicInput(opts.micSensitivity);
       const reason = source.unavailableReason();
       if (reason) {
         this._error = reason;
       } else {
         try {
+          source.setGuide?.(this.guide);
           await source.start(this.emit);
           this.external = source;
         } catch (err) {

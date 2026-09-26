@@ -1,13 +1,14 @@
 import { AudioManager, AudioRecorder } from 'react-native-audio-api';
 
 import { MIC_FRAME_SIZE, PitchProcessor } from './pitch/pitch-processor';
-import type { InputSource, NoteEmitter } from './types';
+import type { GuideNote, InputSource, NoteEmitter } from './types';
 
 /** Microfone no Android/iOS (react-native-audio-api). */
 export class MicInput implements InputSource {
   readonly kind = 'mic' as const;
   private recorder: AudioRecorder | null = null;
   processor: PitchProcessor | null = null;
+  private guide: GuideNote[] | null = null;
 
   constructor(private sensitivity = 0.01) {}
 
@@ -29,6 +30,7 @@ export class MicInput implements InputSource {
     const sampleRate = 44100;
     this.processor = new PitchProcessor(sampleRate, emit);
     this.processor.setSensitivity(this.sensitivity);
+    this.processor.setGuide(this.guide);
     const recorder = new AudioRecorder();
     const cb = recorder.onAudioReady(
       { sampleRate, bufferLength: MIC_FRAME_SIZE / 2, channelCount: 1 },
@@ -38,6 +40,11 @@ export class MicInput implements InputSource {
     const res = await recorder.start();
     if (res.status === 'error') throw new Error(res.message);
     this.recorder = recorder;
+  }
+
+  setGuide(notes: GuideNote[] | null): void {
+    this.guide = notes;
+    this.processor?.setGuide(notes);
   }
 
   stop(): void {

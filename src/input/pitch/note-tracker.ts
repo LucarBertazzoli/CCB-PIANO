@@ -48,6 +48,10 @@ export class NoteTracker {
     this.opts.minRms = value;
   }
 
+  get minRms(): number {
+    return this.opts.minRms;
+  }
+
   get activeNote(): number | null {
     return this.current;
   }

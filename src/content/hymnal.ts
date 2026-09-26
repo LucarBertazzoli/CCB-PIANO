@@ -91,3 +91,22 @@ export interface HymnEntry {
 export function hymnCatalog(): HymnEntry[] {
   return hymnIndex.map((h) => ({ kind: h.kind, number: h.n, title: h.title, songId: hymnId(h.kind, h.n) }));
 }
+
+/** Grupos da tela inicial (como no índice do hinário). */
+export type HymnGroup = 'hinos' | 'jovens' | 'ceia' | 'funeral' | 'coros';
+
+const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+/**
+ * Hinos para Santa Ceia e para Funeral: seções do índice geral do Hinário
+ * nº 5 (edição para órgão). Jovens e Menores: hinos 431 a 480.
+ */
+const SANTA_CEIA = new Set([408, ...range(410, 425)]);
+const FUNERAL = new Set([158, 250, ...range(426, 430)]);
+
+export const HYMN_GROUPS: { id: HymnGroup; label: string; includes: (h: HymnEntry) => boolean }[] = [
+  { id: 'hinos', label: 'Hinos', includes: (h) => h.kind === 'hino' },
+  { id: 'jovens', label: 'Jovens e Menores', includes: (h) => h.kind === 'hino' && h.number >= 431 },
+  { id: 'ceia', label: 'Santa Ceia', includes: (h) => h.kind === 'hino' && SANTA_CEIA.has(h.number) },
+  { id: 'funeral', label: 'Funeral', includes: (h) => h.kind === 'hino' && FUNERAL.has(h.number) },
+  { id: 'coros', label: 'Coros', includes: (h) => h.kind === 'coro' },
+];

@@ -166,7 +166,7 @@ export function buildPalette(c: ColorChoices): Palette {
 
 /** Paleta colorida padrão (usada nos testes e como referência). */
 export const color: Palette = buildPalette({
-  accent: '#FF5A1F',
+  accent: '#D81B60',
   right: '#3FA9F5',
   left: '#A06BFF',
   pedal: '#26A69A',
@@ -179,14 +179,18 @@ export const color: Palette = buildPalette({
 // Uma paleta por combinação de cores: a mesma referência evita redesenhos à toa.
 const cache = new Map<string, Palette>();
 
+/** Preto e branco, só com a cor de destaque nos botões e seleções. */
+export function monoWithAccent(accent: string): Palette {
+  return { ...mono, primary: accent, primaryText: readableOn(accent), hitLine: accent };
+}
+
 export function usePalette(): Palette {
   const mode = useSettings((s) => s.colorMode);
   const colors = useSettings((s) => s.colors);
-  if (mode !== 'color') return mono;
-  const key = JSON.stringify(colors);
+  const key = mode === 'color' ? JSON.stringify(colors) : `mono:${colors.accent}`;
   let p = cache.get(key);
   if (!p) {
-    p = buildPalette(colors);
+    p = mode === 'color' ? buildPalette(colors) : monoWithAccent(colors.accent);
     cache.set(key, p);
   }
   return p;

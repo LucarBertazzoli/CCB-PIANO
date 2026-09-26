@@ -1,5 +1,5 @@
 import { MIC_FRAME_SIZE, PitchProcessor } from './pitch/pitch-processor';
-import type { InputSource, NoteEmitter } from './types';
+import type { GuideNote, InputSource, NoteEmitter } from './types';
 
 /** Microfone no navegador (getUserMedia + Web Audio). */
 export class MicInput implements InputSource {
@@ -8,6 +8,7 @@ export class MicInput implements InputSource {
   private stream: MediaStream | null = null;
   private node: ScriptProcessorNode | null = null;
   processor: PitchProcessor | null = null;
+  private guide: GuideNote[] | null = null;
 
   constructor(private sensitivity = 0.01) {}
 
@@ -29,12 +30,18 @@ export class MicInput implements InputSource {
     this.node = this.ctx.createScriptProcessor(MIC_FRAME_SIZE / 2, 1, 1);
     this.processor = new PitchProcessor(this.ctx.sampleRate, emit);
     this.processor.setSensitivity(this.sensitivity);
+    this.processor.setGuide(this.guide);
     this.node.onaudioprocess = (e) => this.processor?.push(e.inputBuffer.getChannelData(0));
     source.connect(this.node);
     // Conecta a um ganho zero para o nó processar sem tocar o som de volta.
     const mute = this.ctx.createGain();
     mute.gain.value = 0;
     this.node.connect(mute).connect(this.ctx.destination);
+  }
+
+  setGuide(notes: GuideNote[] | null): void {
+    this.guide = notes;
+    this.processor?.setGuide(notes);
   }
 
   stop(): void {
