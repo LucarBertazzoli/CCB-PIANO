@@ -1,50 +1,25 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { allCourses, allSongs, getSong } from '@/content';
 import { fitRange, keyboardLayout } from '@/components/keyboard-layout';
+import { getSong } from '@/content';
+import { hymnCatalog } from '@/content/hymnal';
 
-describe('catálogo', () => {
-  it('toda lição aponta para músicas existentes e trechos válidos', () => {
-    for (const course of allCourses()) {
-      for (const unit of course.units) {
-        for (const lesson of unit.lessons) {
-          for (const step of lesson.steps) {
-            if ('songId' in step) {
-              const song = getSong(step.songId);
-              expect(song).toBeDefined();
-              if ('sectionId' in step && step.sectionId) expect(song!.sections?.some((s) => s.id === step.sectionId)).toBe(true);
-            }
-            if (step.type === 'quiz') {
-              for (const q of step.questions) expect(q.answer).toBeLessThan(q.options.length);
-            }
-            if (step.type === 'listen') {
-              for (const r of step.rounds) {
-                expect(r.answer).toBeLessThan(r.options.length);
-                expect(r.sounds.length).toBeGreaterThan(0);
-              }
-            }
-            if (step.type === 'rhythm') expect(getSong(step.songId)?.tags).toContain('ritmo');
-          }
-        }
+describe('hinário', () => {
+  it('todos os hinos e coros carregam com as 4 vozes e compassos coerentes', () => {
+    const catalog = hymnCatalog();
+    expect(catalog).toHaveLength(486);
+    for (const entry of catalog) {
+      const song = getSong(entry.songId)!;
+      expect(song).toBeDefined();
+      expect(song.title).toBeTruthy();
+      for (const voice of ['soprano', 'alto', 'tenor', 'bass'] as const) {
+        const notes = song.notes.filter((n) => n.voice === voice);
+        expect(notes.length).toBeGreaterThan(0);
+        // Nenhuma nota passa do fim do hino.
+        expect(Math.max(...notes.map((n) => n.start + n.duration))).toBeLessThanOrEqual(song.endBeat! + 1e-6);
       }
-    }
-  });
-
-  it('músicas têm notas válidas e compassos completos', () => {
-    for (const song of allSongs()) {
-      expect(song.notes.length).toBeGreaterThan(0);
-      for (const n of song.notes) {
-        expect(n.midi).toBeGreaterThanOrEqual(21);
-        expect(n.midi).toBeLessThanOrEqual(108);
-      }
-      const beatsPerBar = song.timeSignature[0] * (4 / song.timeSignature[1]);
-      for (const hand of ['right', 'left'] as const) {
-        const notes = song.notes.filter((n) => n.hand === hand);
-        if (!notes.length) continue;
-        const rests = (song.rests ?? []).filter((r) => r.hand === hand);
-        const end = Math.max(...[...notes, ...rests].map((n) => n.start + n.duration));
-        expect([song.id, hand, end % beatsPerBar]).toEqual([song.id, hand, 0]);
-      }
+      expect(song.measures![0]).toBe(0);
+      expect(song.sections!.length).toBeGreaterThan(0);
     }
   });
 });

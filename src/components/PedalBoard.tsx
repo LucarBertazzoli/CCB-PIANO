@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isBlackKey, noteName, type Notation } from '@/music/theory';
 
+import { font, usePalette, type Palette } from '@/theme';
+
 import type { KeyHint, KeyState } from './PianoKeyboard';
 
 interface Props {
@@ -18,20 +20,20 @@ interface Props {
   onNoteOff?: (midi: number) => void;
 }
 
-function pedalColor(black: boolean, state: KeyState | undefined): string {
+function pedalColor(p: Palette, black: boolean, state: KeyState | undefined): { bg: string; fg: string } {
   switch (state) {
     case 'expected-pedal':
     case 'expected-left':
     case 'expected-right':
-      return black ? '#00796B' : '#4DD0B8';
+      return { bg: black ? p.keyPedal[1] : p.keyPedal[0], fg: p.keyPedal[2] };
     case 'correct':
-      return '#4CD964';
+      return { bg: p.keyCorrect, fg: p.mode === 'mono' ? '#000000' : '#FFFFFF' };
     case 'wrong':
-      return '#FF5A5F';
+      return { bg: p.keyWrong, fg: '#FFFFFF' };
     case 'pressed':
-      return black ? '#4A3A2A' : '#C9A77C';
+      return { bg: black ? '#444444' : '#B0B0B0', fg: p.pedalLabel };
     default:
-      return black ? '#2B211A' : '#D9B98E';
+      return { bg: black ? p.pedalSharp : p.pedalNatural, fg: p.pedalLabel };
   }
 }
 
@@ -50,6 +52,7 @@ export const PedalBoard = memo(function PedalBoard({
   onNoteOn,
   onNoteOff,
 }: Props) {
+  const palette = usePalette();
   const naturals: number[] = [];
   for (let m = low; m <= high; m++) if (!isBlackKey(m)) naturals.push(m);
   const slot = width / naturals.length;
@@ -67,11 +70,12 @@ export const PedalBoard = memo(function PedalBoard({
   for (let m = low; m <= high; m++) pedals.push(m);
 
   return (
-    <View style={[styles.board, { width, height }]}>
+    <View style={[styles.board, { width, height, backgroundColor: palette.pedalBoard }]}>
       <Text style={styles.title}>PEDALEIRA</Text>
       {pedals.map((midi) => {
         const black = isBlackKey(midi);
         const hint = hints?.get(midi);
+        const c = pedalColor(palette, black, hint?.state);
         return (
           <Pressable
             key={midi}
@@ -85,12 +89,12 @@ export const PedalBoard = memo(function PedalBoard({
                 width: black ? sharpW : pedalW,
                 top: black ? 2 : height * 0.22,
                 height: black ? height * 0.55 : height * 0.74,
-                backgroundColor: pedalColor(black, hint?.state),
+                backgroundColor: c.bg,
                 zIndex: black ? 2 : 1,
               },
             ]}>
             {!black ? (
-              <Text numberOfLines={1} style={[styles.label, midi % 12 === 0 && styles.labelC]}>
+              <Text numberOfLines={1} style={[styles.label, { color: c.fg }, midi % 12 === 0 && styles.labelC]}>
                 {noteName(midi, notation, { withOctave: midi % 12 === 0, preferFlats })}
               </Text>
             ) : null}
@@ -103,18 +107,17 @@ export const PedalBoard = memo(function PedalBoard({
 
 const styles = StyleSheet.create({
   board: {
-    backgroundColor: '#1A140F',
-    borderTopWidth: 2,
-    borderTopColor: '#3A2C20',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#222222',
     alignSelf: 'center',
   },
   title: {
     position: 'absolute',
     left: 6,
-    top: 2,
-    color: '#8A7560',
+    top: 3,
+    fontFamily: font,
+    color: '#6E6E6E',
     fontSize: 8,
-    fontWeight: '800',
     letterSpacing: 1,
   },
   pedal: {
@@ -124,8 +127,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 2,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.35)',
+    borderColor: '#2A2A2A',
   },
-  label: { color: '#4A3826', fontSize: 9, fontWeight: '700' },
-  labelC: { color: '#2A1D12', fontWeight: '900' },
+  label: { fontFamily: font, fontSize: 9 },
+  labelC: { fontWeight: '700' },
 });

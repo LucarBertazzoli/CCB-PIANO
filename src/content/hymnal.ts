@@ -78,3 +78,16 @@ export function loadHymn(id: string): Song | undefined {
   cache.set(id, song);
   return song;
 }
+
+/** Uma entrada do hinário para busca e seleção. */
+export interface HymnEntry {
+  kind: 'hino' | 'coro';
+  number: number;
+  title: string;
+  songId: string;
+}
+
+/** Catálogo completo: hinos 1–480 e coros 1–6. */
+export function hymnCatalog(): HymnEntry[] {
+  return hymnIndex.map((h) => ({ kind: h.kind, number: h.n, title: h.title, songId: hymnId(h.kind, h.n) }));
+}

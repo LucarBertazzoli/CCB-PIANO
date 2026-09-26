@@ -6,9 +6,18 @@ Funciona na **horizontal** (paisagem), como o Simply Piano.
 A experiência de tocar é inspirada no Simply Piano: as notas caem sobre um
 teclado, o app **escuta** o que o aluno toca (teclado na tela, teclado MIDI ou
 microfone) e, no modo **Aprender**, **para e espera** até o aluno tocar a nota
-certa. A trilha de lições (explicação → ouvir → praticar → tocar, estrelas,
-sequência de dias) segue a mesma ideia de apps como o Artie e o Simply Piano,
-sem instrutor de IA.
+certa. Sem instrutor de IA.
+
+Visual **minimalista em preto e branco** (fonte Verdana, a mesma do site da
+CCB), com modo colorido opcional. São só duas telas:
+
+1. **Entrada** — um campo para digitar o número ou o nome, a escolha entre
+   *Hinos* e *Coros* e uma roda que gira até o número certo.
+2. **Tocar** — o hino abre direto. Ao pausar, aparece o painel (inspirado no
+   Artie) com tudo: quem toca cada mão e a pedaleira (App/Você), modo espera,
+   acompanhamento, andamento digitável (− 72 +), metrônomo, trecho/repetição,
+   vozes, Notas/Partitura, reconhecimento de notas (tela, MIDI, microfone) e
+   teclado/aparência (manuais, pedaleira, tamanho das teclas, cores).
 
 ## O que já funciona
 
@@ -25,20 +34,16 @@ sem instrutor de IA.
 - **Praticar por voz** (soprano, contralto, tenor, baixo), por mão ou o hino
   inteiro; as outras vozes tocam junto como acompanhamento.
 
-- **Notas caindo** sobre o teclado, com cor por mão (azul = direita, roxo =
-  esquerda), nome da nota ou número do dedo dentro de cada nota, linhas de
-  compasso e guias de Dó/Fá.
-- **Três modos**: *Ouvir* (demonstração), *Aprender* (espera o aluno — acordes
-  exigem todas as notas) e *Tocar* (no andamento, com precisão, “Perfeito!/Bom!”
-  e estrelas).
-- **Praticar por mão** (a outra mão toca sozinha como acompanhamento), por
-  **trecho** (linha/estrofe) e com **andamento** 50/75/100%.
-- **Partitura** em pauta dupla rolando (prévia), alternável com as notas caindo.
+- **Notas caindo** sobre o teclado, com nome da nota ou número do dedo,
+  linhas de compasso e guias de Dó/Fá.
+- **Dois manuais** (superior e inferior) e **pedaleira**, cada um acendendo só
+  as teclas que lhe cabem.
+- **Modos**: só ouvir (o app toca tudo), modo espera (as notas esperam o aluno —
+  acordes exigem todas as notas) e no andamento (precisão e estrelas).
+- **Trecho** por linha do hinário, com repetição sem parar.
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
   **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
 - **Som** de piano e órgão sintetizado (sem arquivos de áudio), metrônomo.
-- **Trilha de aprendizagem (oculta por enquanto)**: 23 níveis baseados no MOR,
-  guardados em `src/content/courses/trilha.ts` e na rota `/trilha`.
 
 ## Rodando
 
@@ -66,15 +71,14 @@ npm test
 ```
 src/
   app/                 Telas (Expo Router)
-    (tabs)/            Hinos • Ajustes (Trilha oculta)
-    licao/[id].tsx     Executa uma lição passo a passo
-    hino/[songId].tsx  Detalhes da música (mãos, trecho, modo)
-    tocar/[songId].tsx Player livre
+    index.tsx          Entrada: busca, Hinos/Coros e roda de números
+    tocar/[songId].tsx Tocar o hino (painel de ajustes ao pausar)
   content/             Conteúdo como dados puros
-    types.ts           Song, Lesson, Course, passos…
-    notation.ts        Notação de texto para cadastrar músicas
-    songs/             Exercícios, peças, hinos
-    courses/trilha.ts  Trilha de aprendizagem (sequência do MOR)
+    types.ts           Song, notas, vozes, trechos
+    hinario/           480 hinos + 6 coros (JSON gerado pelo importador)
+    hymnal.ts          Catálogo e carregamento dos hinos
+    organ.ts           Arranjo da organista (mãos + pedaleira)
+    notation.ts        Notação de texto (usada nos testes)
   engine/              Regras do jogo, sem UI (100% testável)
     timeline.ts        Batidas → segundos, trechos, mãos ativas
     practice-session.ts Relógio, modo espera/ritmo/demo, acertos, erros
@@ -85,13 +89,14 @@ src/
     midi-input*.ts     Web MIDI (nativo: a integrar)
     mic-input*.ts      Microfone (nativo e web)
   audio/synth.ts       Sintetizador de piano/órgão
-  components/          Teclado, notas caindo, partitura (HymnScore), UI
+  components/          Teclado, pedaleira, notas caindo, partitura (HymnScore)
   music/spelling.ts    Grafia das notas (armadura, ♯ ♭ ♮ por compasso)
-  features/            Player e atividades (quiz, ouvir, encontrar a nota)
-  store/               Ajustes e progresso (persistidos)
+  features/player/     Tela de tocar e o painel de ajustes
+  theme/               Preto e branco (padrão) e colorido; fonte Verdana
+  store/               Preferências (persistidas)
 ```
 
 Leia também:
 
-- [`docs/CONTEUDO.md`](docs/CONTEUDO.md) — como cadastrar hinos, exercícios e lições.
-- [`docs/PLANO_MOR.md`](docs/PLANO_MOR.md) — plano de integração do MOR e próximos passos.
+- [`docs/CONTEUDO.md`](docs/CONTEUDO.md) — como importar e cadastrar hinos.
+- [`docs/PLANO_MOR.md`](docs/PLANO_MOR.md) — estudo do MOR (a trilha de lições foi retirada do app).

@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { noteName, type Notation } from '@/music/theory';
-import { colors } from '@/theme';
+import { font, usePalette, type Palette } from '@/theme';
 
 import type { KeyboardLayout, KeyRect } from './keyboard-layout';
 
@@ -28,29 +28,30 @@ interface Props {
   showLabels?: boolean;
   onNoteOn?: (midi: number) => void;
   onNoteOff?: (midi: number) => void;
-  /** Etiqueta no canto (ex.: “Superior”, “Inferior”) e sua cor. */
+  /** Etiqueta no canto (ex.: “Superior”, “Inferior”). */
   tag?: string;
-  tagColor?: string;
   /** Bemóis em vez de sustenidos nos nomes (tonalidades com ♭). */
   preferFlats?: boolean;
 }
 
-function keyColor(black: boolean, state: KeyState): string {
+/** Cor de fundo e cor do texto de uma tecla conforme o estado. */
+function keyStyle(p: Palette, black: boolean, state: KeyState): { bg: string; fg: string } {
+  const filled = (c: [string, string, string]) => ({ bg: black ? c[1] : c[0], fg: c[2] });
   switch (state) {
     case 'expected-right':
-      return black ? '#1976D2' : '#5AB4FF';
+      return filled(p.keyRight);
     case 'expected-left':
-      return black ? '#7B2FD0' : '#B07CFF';
+      return filled(p.keyLeft);
     case 'expected-pedal':
-      return black ? '#00796B' : '#4DD0B8';
+      return filled(p.keyPedal);
     case 'correct':
-      return colors.keyCorrect;
+      return { bg: p.keyCorrect, fg: p.mode === 'mono' ? '#000000' : '#FFFFFF' };
     case 'wrong':
-      return colors.keyWrong;
+      return { bg: p.keyWrong, fg: '#FFFFFF' };
     case 'pressed':
-      return black ? colors.keyBlackPressed : colors.keyWhitePressed;
+      return { bg: black ? p.keyBlackPressed : p.keyWhitePressed, fg: black ? '#DDD' : p.keyLabel };
     default:
-      return black ? colors.keyBlack : colors.keyWhite;
+      return { bg: black ? p.keyBlack : p.keyWhite, fg: black ? '#DDD' : p.keyLabel };
   }
 }
 
@@ -60,6 +61,7 @@ const Key = memo(function Key({
   hint,
   label,
   strong,
+  palette,
   onNoteOn,
   onNoteOff,
 }: {
@@ -69,12 +71,15 @@ const Key = memo(function Key({
   label?: string;
   /** Dó com número da oitava (referência de posição). */
   strong?: boolean;
+  palette: Palette;
   onNoteOn?: (midi: number) => void;
   onNoteOff?: (midi: number) => void;
 }) {
   const state = hint?.state ?? 'idle';
+  const { bg, fg } = keyStyle(palette, rect.black, state);
   const keyHeight = rect.black ? height * 0.62 : height;
   const fontSize = Math.max(8, Math.min(12, rect.width * 0.36));
+  const mark = state === 'correct' ? '✓' : state === 'wrong' ? '✕' : null;
   return (
     <Pressable
       onPressIn={() => onNoteOn?.(rect.midi)}
@@ -86,19 +91,16 @@ const Key = memo(function Key({
           left: rect.x,
           width: rect.black ? rect.width : rect.width - 1,
           height: keyHeight,
-          backgroundColor: keyColor(rect.black, state),
+          backgroundColor: bg,
           zIndex: rect.black ? 2 : 1,
         },
       ]}>
+      {mark ? <Text style={[styles.mark, { color: fg }]}>{mark}</Text> : null}
       {hint?.finger && rect.width >= 18 && (state === 'expected-right' || state === 'expected-left') ? (
-        <View style={[styles.fingerBadge, { backgroundColor: state === 'expected-right' ? colors.rightHand : colors.leftHand }]}>
-          <Text style={styles.fingerText}>{hint.finger}</Text>
-        </View>
+        <Text style={[styles.finger, { color: fg }]}>{hint.finger}</Text>
       ) : null}
       {label ? (
-        <Text
-          numberOfLines={1}
-          style={[styles.label, { fontSize }, strong && styles.labelStrong, rect.black && styles.labelBlack]}>
+        <Text numberOfLines={1} style={[styles.label, { fontSize, color: fg }, strong && styles.labelStrong]}>
           {label}
         </Text>
       ) : null}
@@ -107,8 +109,8 @@ const Key = memo(function Key({
 });
 
 /**
- * Teclado de piano desenhado com Views. A mesma `layout` é usada pelas notas
- * que caem, garantindo que cada nota caia exatamente sobre a sua tecla.
+ * Teclado desenhado com Views. A mesma `layout` é usada pelas notas que caem,
+ * garantindo que cada nota caia exatamente sobre a sua tecla.
  */
 export const PianoKeyboard = memo(function PianoKeyboard({
   layout,
@@ -119,9 +121,9 @@ export const PianoKeyboard = memo(function PianoKeyboard({
   onNoteOn,
   onNoteOff,
   tag,
-  tagColor,
   preferFlats,
 }: Props) {
+  const palette = usePalette();
   // Teclas estreitas: só os Dós ganham nome (com a oitava) para não poluir.
   const narrow = layout.whiteWidth < 24;
   return (
@@ -139,13 +141,14 @@ export const PianoKeyboard = memo(function PianoKeyboard({
             hint={hint}
             label={label}
             strong={isC}
+            palette={palette}
             onNoteOn={onNoteOn}
             onNoteOff={onNoteOff}
           />
         );
       })}
       {tag ? (
-        <View pointerEvents="none" style={[styles.tag, { backgroundColor: tagColor ?? colors.primary }]}>
+        <View pointerEvents="none" style={styles.tag}>
           <Text style={styles.tagText}>{tag}</Text>
         </View>
       ) : null}
@@ -156,7 +159,7 @@ export const PianoKeyboard = memo(function PianoKeyboard({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    backgroundColor: '#000',
+    backgroundColor: '#050505',
   },
   key: {
     position: 'absolute',
@@ -165,48 +168,28 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   white: {
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    paddingBottom: 6,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    paddingBottom: 5,
   },
   black: {
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
     paddingBottom: 4,
-    borderWidth: 1,
-    borderColor: '#000',
   },
-  label: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#5B6475',
-  },
-  labelStrong: { color: '#1D2433', fontWeight: '800' },
+  label: { fontFamily: font, fontSize: 11 },
+  labelStrong: { fontWeight: '700' },
+  mark: { fontFamily: font, fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  finger: { fontFamily: font, fontSize: 12, fontWeight: '700', marginBottom: 2 },
   tag: {
     position: 'absolute',
-    top: 3,
-    left: 3,
+    top: 2,
+    left: 2,
     zIndex: 5,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 6,
-    opacity: 0.92,
+    borderRadius: 4,
+    backgroundColor: 'rgba(17,17,17,0.85)',
   },
-  tagText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-  labelBlack: {
-    color: '#DDD',
-  },
-  fingerBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  fingerText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  tagText: { fontFamily: font, color: '#FFFFFF', fontSize: 9, letterSpacing: 0.6 },
 });

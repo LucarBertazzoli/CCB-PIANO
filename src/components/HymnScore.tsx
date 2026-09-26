@@ -13,6 +13,7 @@ import type { Song, Voice } from '@/content/types';
 import type { NoteResult } from '@/engine/practice-session';
 import type { TimedNote, Timeline } from '@/engine/timeline';
 import { createSpeller } from '@/music/spelling';
+import { font, usePalette, type Palette } from '@/theme';
 
 /**
  * Partitura no formato do hinário da organista.
@@ -39,16 +40,6 @@ interface Props {
 
 type StaffName = 'treble' | 'bass' | 'pedal';
 
-const PAPER = '#FBF8F1';
-const INK = '#1D1D1F';
-const INK_SOFT = '#8A8A94';
-const STAFF_COLOR = '#3C3C44';
-const HIT = '#1FA64A';
-const MISS = '#D93A3F';
-const ACTIVE_RIGHT = '#1565C0';
-const ACTIVE_LEFT = '#6A2FB8';
-const ACTIVE_PEDAL = '#00897B';
-const CURSOR = 'rgba(33,150,243,0.16)';
 
 const UP_VOICES: Voice[] = ['soprano', 'tenor'];
 const SHARP_STEPS = [38, 35, 39, 36, 33, 37, 34]; // posição dos ♯ da armadura na clave de Sol
@@ -150,6 +141,10 @@ export const HymnScore = memo(function HymnScore({
   resultOf,
   showFingers = true,
 }: Props) {
+  const pal = usePalette();
+  const INK = pal.ink;
+  const INK_SOFT = pal.textDim;
+  const STAFF_COLOR = pal.staff;
   const hasPedal = timeline.notes.some((n) => n.voice === 'pedal');
   const L = useMemo(() => computeLayout(width, height, song, timeline, hasPedal), [width, height, song, timeline, hasPedal]);
   const { gap, marginX, topPad, systemHeight } = L;
@@ -303,7 +298,7 @@ export const HymnScore = memo(function HymnScore({
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [L, song.keySignature, song.timeSignature, song.showTimeSignature, measureOffset]);
+  }, [L, song.keySignature, song.timeSignature, song.showTimeSignature, measureOffset, pal]);
 
   // ------------------------------------------------------------- notas
   const spellers: Record<StaffName, ReturnType<typeof createSpeller>> = {
@@ -319,7 +314,7 @@ export const HymnScore = memo(function HymnScore({
     const sp = spellers[staff](n.midi, String(m));
     const cx = beatX(rel);
     const cy = yOf(i, sp.step, staff);
-    const color = colorFor(n, resultOf(n.id));
+    const color = colorFor(pal, n, resultOf(n.id));
     const { base, dots } = splitDuration(n.beats);
     const hollow = base >= 2;
     const middleStep = staff === 'treble' ? 34 : 22;
@@ -400,21 +395,21 @@ export const HymnScore = memo(function HymnScore({
     : `♩ = ${song.tempo}`;
 
   return (
-    <View style={[styles.paper, { width, height }]}>
+    <View style={[styles.paper, { width, height, backgroundColor: pal.paper }]}>
       <Animated.ScrollView ref={scrollRef} contentContainerStyle={{ height: contentHeight }} showsVerticalScrollIndicator>
         <View style={styles.header}>
-          <Text style={styles.headerNumber}>{song.hymnNumber ?? ''}</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerNumber, { color: INK }]}>{song.hymnNumber ?? ''}</Text>
+          <Text style={[styles.headerTitle, { color: INK }]} numberOfLines={1}>
             {song.title}
           </Text>
           <View style={{ alignItems: 'flex-end' }}>
-            {song.composer ? <Text style={styles.headerSmall}>{song.composer}</Text> : null}
-            <Text style={styles.headerSmall}>({tempoText})</Text>
+            {song.composer ? <Text style={[styles.headerSmall, { color: INK }]}>{song.composer}</Text> : null}
+            <Text style={[styles.headerSmall, { color: INK }]}>({tempoText})</Text>
           </View>
         </View>
         <Animated.View
           pointerEvents="none"
-          style={[styles.cursor, { width: gap * 2.8, height: systemHeight - gap * 4 }, cursorStyle]}
+          style={[styles.cursor, { width: gap * 2.8, height: systemHeight - gap * 4, backgroundColor: pal.cursor, borderLeftColor: pal.cursorEdge }, cursorStyle]}
         />
         <Svg width={width} height={contentHeight} style={StyleSheet.absoluteFill}>
           {staticLayer}
@@ -458,16 +453,17 @@ function flag(x: number, y: number, up: boolean, count: number, gap: number, col
   );
 }
 
-function colorFor(n: TimedNote, result: NoteResult): string {
-  if (result === 'hit') return HIT;
-  if (result === 'missed') return MISS;
-  if (!n.active) return INK;
-  if (n.voice === 'pedal') return ACTIVE_PEDAL;
-  return n.hand === 'right' ? ACTIVE_RIGHT : ACTIVE_LEFT;
+/** Preto: o que você toca; cinza: o que o app toca; já tocadas: acinzentadas. */
+function colorFor(p: Palette, n: TimedNote, result: NoteResult): string {
+  if (result === 'hit') return p.inkHit;
+  if (result === 'missed') return p.inkMissed;
+  if (!n.active) return p.inkInactive;
+  if (n.voice === 'pedal') return p.inkPedal;
+  return n.hand === 'right' ? p.inkRight : p.inkLeft;
 }
 
 const styles = StyleSheet.create({
-  paper: { backgroundColor: PAPER, overflow: 'hidden' },
+  paper: { overflow: 'hidden' },
   header: {
     position: 'absolute',
     top: 6,
@@ -477,16 +473,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  headerNumber: { color: INK, fontSize: 20, fontWeight: '900', minWidth: 20 },
-  headerTitle: { color: INK, fontSize: 17, fontWeight: '800', flex: 1, textAlign: 'center' },
-  headerSmall: { color: INK, fontSize: 11 },
+  headerNumber: { fontFamily: font, fontSize: 20, fontWeight: '700', minWidth: 20 },
+  headerTitle: { fontFamily: font, fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
+  headerSmall: { fontFamily: font, fontSize: 10 },
   cursor: {
     position: 'absolute',
     left: 0,
     top: 0,
-    backgroundColor: CURSOR,
     borderRadius: 6,
     borderLeftWidth: 2,
-    borderLeftColor: 'rgba(33,150,243,0.7)',
   },
 });

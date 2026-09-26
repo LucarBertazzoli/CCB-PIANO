@@ -6,7 +6,7 @@ import type { NoteResult } from '@/engine/practice-session';
 import type { TimedNote } from '@/engine/timeline';
 import { noteName, type Notation } from '@/music/theory';
 import type { NoteLabelMode } from '@/store/settings';
-import { colors } from '@/theme';
+import { font, usePalette, type Palette } from '@/theme';
 
 import type { KeyboardLayout } from './keyboard-layout';
 
@@ -28,17 +28,16 @@ interface Props {
   preferFlats?: boolean;
 }
 
-function noteColors(note: TimedNote, result: NoteResult) {
-  if (!note.active) return { bg: colors.autoNote, border: 'transparent', opacity: 0.55 };
-  const base = note.hand === 'right' ? colors.rightHand : colors.leftHand;
-  const light = note.hand === 'right' ? colors.rightHandLight : colors.leftHandLight;
+function noteColors(p: Palette, note: TimedNote, result: NoteResult) {
+  if (!note.active) return { bg: p.noteAuto, border: 'transparent', fg: p.textDim };
+  const base = note.hand === 'right' ? p.noteRight : p.noteLeft;
   switch (result) {
     case 'hit':
-      return { bg: light, border: '#FFFFFF', opacity: 1 };
+      return { bg: p.noteHit, border: p.noteHit, fg: '#FFFFFF' };
     case 'missed':
-      return { bg: '#4A5570', border: colors.danger, opacity: 0.8 };
+      return { bg: p.noteMissed, border: base, fg: base };
     default:
-      return { bg: base, border: light, opacity: 1 };
+      return { bg: base, border: base, fg: p.noteText };
   }
 }
 
@@ -49,18 +48,18 @@ const NoteBar = memo(function NoteBar({
   pps,
   result,
   label,
-  black,
+  palette,
 }: {
+  palette: Palette;
   note: TimedNote;
   x: number;
   width: number;
   pps: number;
   result: NoteResult;
   label?: string;
-  black: boolean;
 }) {
   const h = Math.max(14, note.duration * pps - 3);
-  const c = noteColors(note, result);
+  const c = noteColors(palette, note, result);
   return (
     <View
       style={[
@@ -72,11 +71,10 @@ const NoteBar = memo(function NoteBar({
           height: h,
           backgroundColor: c.bg,
           borderColor: c.border,
-          opacity: black ? c.opacity * 0.92 : c.opacity,
         },
       ]}>
       {label ? (
-        <Text numberOfLines={1} style={[styles.noteLabel, { fontSize: Math.min(14, width * 0.42) }]}>
+        <Text numberOfLines={1} style={[styles.noteLabel, { color: c.fg, fontSize: Math.min(13, width * 0.4) }]}>
           {label}
         </Text>
       ) : null}
@@ -101,6 +99,7 @@ export const NoteHighway = memo(function NoteHighway({
   labelMode,
   preferFlats,
 }: Props) {
+  const palette = usePalette();
   const scrollStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: height + time.value * pps }],
   }));
@@ -108,20 +107,20 @@ export const NoteHighway = memo(function NoteHighway({
   const laneLines = layout.keys.filter((k) => !k.black && (k.midi % 12 === 0 || k.midi % 12 === 5));
 
   return (
-    <View style={[styles.container, { width: layout.width, height }]}>
+    <View style={[styles.container, { width: layout.width, height, backgroundColor: palette.highway }]}>
       {laneLines.map((k) => (
         <View
           key={k.midi}
           style={[
             styles.lane,
-            { left: k.x, backgroundColor: k.midi % 12 === 0 ? colors.laneLineC : colors.laneLine },
+            { left: k.x, backgroundColor: k.midi % 12 === 0 ? palette.laneC : palette.lane },
           ]}
         />
       ))}
 
       <Animated.View style={[StyleSheet.absoluteFill, scrollStyle]}>
         {barLines.map((t) => (
-          <View key={`bar-${t}`} style={[styles.bar, { top: -t * pps, width: layout.width }]} />
+          <View key={`bar-${t}`} style={[styles.bar, { top: -t * pps, width: layout.width, backgroundColor: palette.barLine }]} />
         ))}
         {notes.map((n) => {
           const key = layout.byMidi.get(n.midi);
@@ -141,20 +140,19 @@ export const NoteHighway = memo(function NoteHighway({
               pps={pps}
               result={resultOf(n.id)}
               label={n.active ? label : undefined}
-              black={key.black}
+              palette={palette}
             />
           );
         })}
       </Animated.View>
 
-      <View style={styles.hitLine} pointerEvents="none" />
+      <View style={[styles.hitLine, { backgroundColor: palette.hitLine }]} pointerEvents="none" />
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.highway,
     overflow: 'hidden',
   },
   lane: {
@@ -167,11 +165,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     height: 1,
-    backgroundColor: colors.barLine,
   },
   note: {
     position: 'absolute',
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -179,16 +176,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   noteLabel: {
-    color: '#fff',
-    fontWeight: '800',
+    fontFamily: font,
+    fontWeight: '700',
   },
   hitLine: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 3,
-    backgroundColor: colors.hitLine,
-    opacity: 0.85,
+    height: 2,
   },
 });

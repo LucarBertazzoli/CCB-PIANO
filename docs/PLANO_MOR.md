@@ -1,5 +1,9 @@
 # Plano de integração do MOR
 
+> **Arquivado.** A trilha de lições descrita abaixo foi retirada do app, que
+> agora é focado só no hinário. O documento fica como referência de estudo;
+> o código citado (`src/content/courses/…`) está no histórico do git.
+
 Fonte: <https://congregacaocristanobrasil.org.br/musica/mor> — *MOR, Método de
 Estudos para Órgão Eletrônico*.
 

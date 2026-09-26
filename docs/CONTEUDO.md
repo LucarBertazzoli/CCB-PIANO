@@ -1,7 +1,7 @@
 # Como cadastrar conteúdo
 
 Todo o conteúdo é **dado** (TypeScript em `src/content/`). As telas não mudam
-quando entram hinos ou lições novas. No futuro, os mesmos objetos podem vir de
+quando entram hinos novos. No futuro, os mesmos objetos podem vir de
 uma API/JSON.
 
 ## 1. Hinário (480 hinos + 6 coros)
@@ -33,22 +33,19 @@ seguradas (legato) e pedaleira a partir do baixo. O teste
 Para trocar a fonte (por exemplo, pelos arquivos oficiais da CCB), basta
 exportá-los para `.mscx` do MuseScore e rodar o importador de novo.
 
-## 1b. Músicas escritas à mão (exercícios e exemplos)
+## 2. Notação de texto (testes)
 
-Para exercícios e peças curtas, a notação de texto continua disponível:
+`src/content/notation.ts` continua disponível para escrever músicas curtas à
+mão (usado nos testes):
 
 ```ts
-import { fourVoices } from '../notation';
-
-...fourVoices({
+fourVoices({
   soprano: 'A4/h:4 G4/q:3 F4 | C5/w',
   alto:    'F4/h:2 E4/q:1 C4 | F4/w',
   tenor:   'C4/h D4/q A3 | A3/w',
   bass:    'F3/h C3/q F3 | F2/w',
 })
 ```
-
-A notação de cada voz:
 
 | Símbolo | Significado |
 | --- | --- |
@@ -59,47 +56,6 @@ A notação de cada voz:
 | `/q.` | Pontuada (×1,5) — ou um número de batidas: `/1.5` |
 | `:3` ou `:1,3,5` | Dedilhado (um dedo por nota do acorde) |
 | `\|` | Barra de compasso (só para leitura) |
-
-Se a duração for omitida, repete a anterior. Use `parseVoice(texto, { hand, voice })`
-e `mergeVoices(...)` para escrever as quatro vozes separadamente.
-
-Registre o arquivo em `src/content/index.ts` (lista de `songs`). O teste
-`src/__tests__/content.test.ts` verifica automaticamente se cada mão fecha
-compassos completos e se as lições apontam para músicas existentes.
-
-## 2. Lições e a trilha
-
-A trilha fica em `src/content/courses/trilha.ts`, na ordem do MOR (Volume 1).
-Cada **nível** (unidade) tem lições curtas; cada lição é uma lista de passos:
-
-| Passo | O que o aluno faz |
-| --- | --- |
-| `intro` | Lê uma explicação curta, com pauta, teclado ou figuras ilustrando (`illustration`) |
-| `listen` | Ouve sons tocados pelo app e responde (grave/agudo, subiu/desceu, curto/longo, forte/fraco, timbre, compasso, tom/semitom) |
-| `quiz` | Responde perguntas de múltipla escolha, com ilustração opcional |
-| `find-key` | Vê a nota (nome ou pauta) e toca a tecla certa (`anyOctave` aceita qualquer oitava) |
-| `rhythm` | Lê as figuras na pauta e toca **qualquer tecla** no ritmo, com metrônomo |
-| `watch` | Ouve e vê a música (demonstração) |
-| `practice` | Toca no modo espera (as notas esperam o aluno) |
-| `play` | Toca no andamento; `minStars` exige estrelas para avançar |
-
-`view: 'sheet'` mostra a partitura em vez das notas caindo (leitura).
-
-Exemplo de rodada de percepção:
-
-```ts
-{
-  type: 'listen',
-  title: 'Grave ou agudo?',
-  rounds: [
-    { question: 'O segundo som foi…', sounds: [{ midi: 60, beats: 1 }, { midi: 72, beats: 1 }],
-      options: ['Grave', 'Agudo'], answer: 1 },
-  ],
-}
-```
-
-Exercícios de ritmo são músicas com a tag `ritmo` em `src/content/songs/estudos.ts`
-(todas as notas no Si da 3ª linha: `B4/q B4 B4/h …`).
 
 Padrão de oitavas da CCB: **Dó central = Dó3** (no código, `C4` / MIDI 60).
 
