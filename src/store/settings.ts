@@ -62,6 +62,8 @@ export interface SettingsState {
   colorMode: 'mono' | 'color';
   colors: ColorChoices;
   fontChoice: FontChoice;
+  /** Últimos hinos abertos (ids), o mais recente primeiro. */
+  recent: string[];
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
@@ -85,6 +87,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   colorMode: 'mono',
   colors: DEFAULT_COLORS,
   fontChoice: 'verdana',
+  recent: [],
 };
 
 export const useSettings = create<SettingsState>()(

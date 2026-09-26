@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Icon } from '@/components/Icon';
 import { Glass, OptionCard, Row, SectionTitle, Segmented, Swatch } from '@/features/player/controls';
 import { DEFAULT_COLORS, useSettings, type ColorChoices, type FontChoice } from '@/store/settings';
 import { FACES, usePalette, useType } from '@/theme';
@@ -168,21 +169,20 @@ function HexField({ value, onApply }: { value: string; onApply: (v: string) => v
 /** Prévia: teclas acesas, acerto/erro e um pedaço de partitura. */
 function Preview() {
   const pal = usePalette();
-  const t = useType();
   const keys = [
-    { bg: pal.keyRight[0], fg: pal.keyRight[2], mark: '' },
-    { bg: pal.keyWhite, fg: pal.keyLabel, mark: '' },
-    { bg: pal.keyLeft[0], fg: pal.keyLeft[2], mark: '' },
-    { bg: pal.keyCorrect, fg: readableOn(pal.keyCorrect), mark: '✓' },
-    { bg: pal.keyWrong, fg: readableOn(pal.keyWrong), mark: '✕' },
-    { bg: pal.keyPedal[0], fg: pal.keyPedal[2], mark: '' },
+    { bg: pal.keyRight[0], fg: pal.keyRight[2], mark: null },
+    { bg: pal.keyWhite, fg: pal.keyLabel, mark: null },
+    { bg: pal.keyLeft[0], fg: pal.keyLeft[2], mark: null },
+    { bg: pal.keyCorrect, fg: readableOn(pal.keyCorrect), mark: 'check' as const },
+    { bg: pal.keyWrong, fg: readableOn(pal.keyWrong), mark: 'close' as const },
+    { bg: pal.keyPedal[0], fg: pal.keyPedal[2], mark: null },
   ];
   return (
     <View style={styles.preview}>
       <View style={[styles.previewKeys, { backgroundColor: pal.bg }]}>
         {keys.map((k, i) => (
           <View key={i} style={[styles.previewKey, { backgroundColor: k.bg }]}>
-            <Text style={[t.bold, styles.previewMark, { color: k.fg }]}>{k.mark}</Text>
+            {k.mark ? <Icon name={k.mark} size={12} color={k.fg} /> : null}
           </View>
         ))}
       </View>
@@ -229,7 +229,6 @@ const styles = StyleSheet.create({
   preview: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   previewKeys: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 6 },
   previewKey: { width: 22, height: 44, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3 },
-  previewMark: { fontSize: 11 },
   previewPaper: { width: 90, height: 44, borderRadius: 6, overflow: 'hidden' },
   previewLine: { position: 'absolute', left: 4, right: 4, height: 1 },
   previewHead: { position: 'absolute', width: 8, height: 6, borderRadius: 3 },

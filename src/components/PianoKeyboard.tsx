@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { noteName, type Notation } from '@/music/theory';
+import { Icon } from './Icon';
 import { usePalette, useType, type Palette, type TypeFace } from '@/theme';
 
 import type { KeyboardLayout, KeyRect } from './keyboard-layout';
@@ -81,7 +82,7 @@ const Key = memo(function Key({
   const { bg, fg } = keyStyle(palette, rect.black, state);
   const keyHeight = rect.black ? height * 0.62 : height;
   const fontSize = Math.max(8, Math.min(12, rect.width * 0.36));
-  const mark = state === 'correct' ? '✓' : state === 'wrong' ? '✕' : null;
+  const mark = state === 'correct' ? 'check' : state === 'wrong' ? 'close' : null;
   return (
     <Pressable
       onPressIn={() => onNoteOn?.(rect.midi)}
@@ -97,7 +98,11 @@ const Key = memo(function Key({
           zIndex: rect.black ? 2 : 1,
         },
       ]}>
-      {mark ? <Text style={[styles.mark, type.bold, { color: fg }]}>{mark}</Text> : null}
+      {mark ? (
+        <View style={styles.mark}>
+          <Icon name={mark} size={Math.max(10, Math.min(16, rect.width * 0.55))} color={fg} />
+        </View>
+      ) : null}
       {hint?.finger && rect.width >= 18 && (state === 'expected-right' || state === 'expected-left') ? (
         <Text style={[styles.finger, type.bold, { color: fg }]}>{hint.finger}</Text>
       ) : null}
@@ -182,7 +187,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   label: { fontSize: 11 },
-  mark: { fontSize: 13, marginBottom: 2 },
+  mark: { marginBottom: 2 },
   finger: { fontSize: 12, marginBottom: 2 },
   tag: {
     position: 'absolute',

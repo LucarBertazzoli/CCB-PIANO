@@ -54,7 +54,7 @@ const APP_YOU = [
   { value: 'app' as const, label: 'App' },
   { value: 'you' as const, label: 'Você' },
 ];
-const TEMPO_GLYPH: Record<string, string> = { q: '♩', e: '♪', 'q.': '♩.', h: '𝅗𝅥' };
+const UNIT_NAME: Record<string, string> = { q: 'semínimas', e: 'colcheias', 'q.': 'semínimas pontuadas', h: 'mínimas' };
 
 /**
  * Tela de tocar um hino. Enquanto toca: só a música e o teclado. Ao pausar,
@@ -274,10 +274,10 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
       </View>
 
       <View style={s.column}>
-        <SectionTitle>Andamento</SectionTitle>
+        <SectionTitle>Velocidade</SectionTitle>
         <Glass style={s.tempoCard}>
           <View style={s.tempoRow}>
-            <RoundButton label="−" onPress={() => changeBpm(bpm - 2)} accessibilityLabel="Diminuir andamento" />
+            <RoundButton icon="minus" onPress={() => changeBpm(bpm - 2)} accessibilityLabel="Mais devagar" />
             <View style={s.tempoValue}>
               <TextInput
                 value={bpmText}
@@ -287,18 +287,24 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
                 keyboardType="number-pad"
                 selectTextOnFocus
                 style={[type.bold, s.tempoInput, { color: pal.text, borderBottomColor: pal.border }]}
-                accessibilityLabel="Andamento em batidas por minuto"
+                accessibilityLabel="Velocidade em batidas por minuto"
               />
-              <Text style={[type.regular, s.tempoLabel, { color: pal.textDim }]}>♩ por minuto · toque para digitar</Text>
+              <Text style={[type.regular, s.tempoLabel, { color: pal.textDim }]}>
+                batidas por minuto{'\n'}{Math.round((bpm / song.tempo) * 100)}% do normal
+              </Text>
             </View>
-            <RoundButton label="+" onPress={() => changeBpm(bpm + 2)} accessibilityLabel="Aumentar andamento" />
+            <RoundButton icon="plus" onPress={() => changeBpm(bpm + 2)} accessibilityLabel="Mais rápido" />
           </View>
-          <Choices<number>
-            options={[0.5, 0.75, 1].map((f) => ({ value: Math.round(song.tempo * f), label: f === 1 ? `Normal ${song.tempo}` : `${f * 100}%` }))}
+          <Segmented
+            options={[
+              { value: Math.round(song.tempo * 0.5), label: 'Lenta' },
+              { value: Math.round(song.tempo * 0.75), label: 'Média' },
+              { value: song.tempo, label: 'Normal' },
+            ]}
             value={bpm}
             onChange={changeBpm}
           />
-          <Row label="Metrônomo" hint={mark ? `Hinário: ${TEMPO_GLYPH[mark.unit] ?? '♩'} = ${mark.min}${mark.max !== mark.min ? `–${mark.max}` : ''}` : undefined} last>
+          <Row label="Metrônomo" hint={mark ? `No hinário: ${mark.min}${mark.max !== mark.min ? ` a ${mark.max}` : ''} ${UNIT_NAME[mark.unit] ?? 'semínimas'} por minuto` : undefined} last>
             <Toggle value={settings.metronome} onChange={(v) => settings.set({ metronome: v })} label="Metrônomo" />
           </Row>
         </Glass>
@@ -596,10 +602,12 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
                   {song.title}
                 </Text>
                 {p.status === 'finished' && p.score && mode !== 'demo' ? (
-                  <Text style={[type.bold, s.result, { color: pal.text }]}>
-                    {'★'.repeat(p.score.stars)}
-                    {'☆'.repeat(3 - p.score.stars)} {Math.round(p.score.accuracy * 100)}%
-                  </Text>
+                  <View style={s.resultRow}>
+                    {[0, 1, 2].map((i) => (
+                      <Icon key={i} name={i < p.score!.stars ? 'star' : 'starOutline'} size={14} color={pal.text} />
+                    ))}
+                    <Text style={[type.bold, s.result, { color: pal.text }]}>{Math.round(p.score.accuracy * 100)}%</Text>
+                  </View>
                 ) : (
                   <Text style={[type.regular, s.measure, { color: pal.textDim }]}>
                     Compasso {currentMeasure + 1 + measureOffset} de {totalMeasures + measureOffset}
@@ -707,7 +715,8 @@ const s = StyleSheet.create({
   hymnNumber: { fontSize: 15 },
   hymnTitle: { fontSize: 14, flex: 1 },
   measure: { fontSize: 11 },
-  result: { fontSize: 13 },
+  result: { fontSize: 13, marginLeft: 4 },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
   rail: { width: 150, gap: 4, paddingTop: 2 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 42, borderRadius: 14, paddingRight: 10, overflow: 'hidden' },

@@ -81,6 +81,22 @@ npm run lint
 npm test
 ```
 
+## Publicar como site
+
+O app também roda como site (uma página só, sem servidor próprio: os hinos
+vêm junto e os ajustes ficam no navegador).
+
+```bash
+npm run build:web    # gera a pasta dist/
+```
+
+- **Vercel**: importe o repositório do GitHub; o `vercel.json` já diz como
+  gerar o site e manda qualquer endereço (ex.: `/tocar/hino-005`) para o app.
+- **Netlify / Cloudflare Pages**: comando `npm run build:web`, pasta `dist`;
+  o arquivo `public/_redirects` faz o mesmo redirecionamento.
+- **Domínio próprio**: registre (ex.: registro.br para `.com.br`/`.org.br`) e
+  aponte o DNS para o serviço escolhido, nas configurações de domínio dele.
+
 ## Arquitetura
 
 ```

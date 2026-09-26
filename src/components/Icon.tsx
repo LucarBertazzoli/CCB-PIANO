@@ -22,6 +22,11 @@ export type IconName =
   | 'check'
   | 'chevronDown'
   | 'chevronUp'
+  | 'star'
+  | 'plus'
+  | 'minus'
+  | 'starOutline'
+  | 'chevronRight'
   | 'touch'
   | 'cable';
 
@@ -100,6 +105,11 @@ export function Icon({ name, size = 22, color }: { name: IconName; size?: number
       {name === 'close' ? <Path d="M6 6l12 12M18 6L6 18" {...stroke} strokeWidth={2} /> : null}
       {name === 'chevronDown' ? <Path d="M6 9l6 6 6-6" {...stroke} strokeWidth={2} /> : null}
       {name === 'chevronUp' ? <Path d="M6 15l6-6 6 6" {...stroke} strokeWidth={2} /> : null}
+      {name === 'star' ? <Path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill={color} /> : null}
+      {name === 'starOutline' ? <Path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" {...stroke} strokeWidth={1.5} /> : null}
+      {name === 'chevronRight' ? <Path d="M9 6l6 6-6 6" {...stroke} strokeWidth={2} /> : null}
+      {name === 'plus' ? <Path d="M12 5v14M5 12h14" {...stroke} strokeWidth={2.2} /> : null}
+      {name === 'minus' ? <Path d="M5 12h14" {...stroke} strokeWidth={2.2} /> : null}
       {name === 'check' ? <Path d="M5 12.5l4.5 4.5L19 7.5" {...stroke} strokeWidth={2.2} /> : null}
       {name === 'touch' ? (
         <>
