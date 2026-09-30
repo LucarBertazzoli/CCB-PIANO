@@ -14,6 +14,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { synth } from '@/audio/synth';
 import { Icon } from '@/components/Icon';
 import { HYMN_GROUPS, hymnCatalog, type HymnEntry, type HymnGroup } from '@/content/hymnal';
 import { RoundButton } from '@/features/player/controls';
@@ -46,6 +47,8 @@ function normalize(s: string) {
 }
 
 function open(entry: HymnEntry) {
+  // Libera o som dentro do toque (o primeiro hino já começa tocando).
+  synth.unlock();
   const { recent, set } = useSettings.getState();
   set({ recent: [entry.songId, ...recent.filter((id) => id !== entry.songId)].slice(0, 6) });
   router.push({ pathname: '/tocar/[songId]', params: { songId: entry.songId } });

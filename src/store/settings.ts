@@ -68,6 +68,8 @@ export interface SettingsState {
   onboarded: boolean;
   /** Já fechou o balão com a dica de reconhecimento das notas. */
   tipInputSeen: boolean;
+  /** Já abriu algum hino (o primeiro abre em Ouvir, tocando sozinho). */
+  firstHymnDone: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
@@ -94,6 +96,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   recent: [],
   onboarded: false,
   tipInputSeen: false,
+  firstHymnDone: false,
 };
 
 export const useSettings = create<SettingsState>()(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -96,7 +96,14 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const [customVoices, setCustomVoices] = useState<Voice[] | null>(null);
   const [waitMode, setWaitMode] = useState(true);
   // Ouvir: o app toca o hino inteiro. Tocar (padrão): você toca e o app acompanha.
-  const [listenOnly, setListenOnly] = useState(false);
+  // O primeiro hino que a pessoa abre na vida começa em Ouvir, já tocando.
+  const [firstHymn] = useState(() => useSettings.persist.hasHydrated() && !useSettings.getState().firstHymnDone);
+  const [listenOnly, setListenOnlyState] = useState(firstHymn);
+  const [tocarTip, setTocarTip] = useState(firstHymn);
+  const setListenOnly = (v: boolean) => {
+    setListenOnlyState(v);
+    if (!v) setTocarTip(false);
+  };
   const [bpm, setBpm] = useState(song.tempo);
   const [bpmText, setBpmText] = useState(String(song.tempo));
 
@@ -137,6 +144,16 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     if (p.status === 'finished') p.restart();
     p.start();
   };
+
+  // Primeiro hino: marca como visto e começa a tocar sozinho (modo Ouvir).
+  const autoStarted = useRef(false);
+  const { start: startPractice } = p;
+  useEffect(() => {
+    if (!firstHymn || autoStarted.current) return;
+    autoStarted.current = true;
+    useSettings.getState().set({ firstHymnDone: true });
+    startPractice();
+  }, [firstHymn, startPractice]);
 
   // ------------------------------------------------------------- entrada (tela/MIDI/microfone)
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
@@ -534,7 +551,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
         <View>
           <RoundButton icon="sliders" size={36} onPress={openPanel} accessibilityLabel="Ajustes" />
           {/* Dica (só na primeira vez), logo abaixo do botão de ajustes */}
-          {!panel && !settings.tipInputSeen ? (
+          {!panel && !settings.tipInputSeen && !tocarTip ? (
             <Animated.View entering={FadeIn.delay(600).duration(250)} style={s.tipTop}>
               <View style={[s.tipArrowUp, { borderBottomColor: pal.primary }]} />
               <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
@@ -554,7 +571,23 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
             </Animated.View>
           ) : null}
         </View>
-        <ModeSwitches listen={listenOnly} onListen={setListenOnly} compact={compactBar} />
+        <ModeSwitches listen={listenOnly} onListen={setListenOnly} compact={compactBar}
+          tip={
+            tocarTip && !panel ? (
+              <Animated.View entering={FadeIn.delay(700).duration(250)} style={s.tocarTip}>
+                <View style={[s.tipArrowUp, { borderBottomColor: pal.primary, marginRight: 28 }]} />
+                <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
+                  <Text style={[type.regular, s.tipText, { color: pal.primaryText }]}>
+                    Agora você está ouvindo o hino. Para tocar você mesmo, toque em <Text style={type.bold}>Tocar</Text>.
+                  </Text>
+                  <Pressable onPress={() => setTocarTip(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Fechar dica" style={s.tipClose}>
+                    <Icon name="close" size={16} color={pal.primaryText} />
+                  </Pressable>
+                </View>
+              </Animated.View>
+            ) : null
+          }
+        />
       </View>
 
       {/* ---------------------------------------------------- música */}
@@ -716,26 +749,32 @@ export function ModeSwitches({
   listen,
   onListen,
   compact,
+  tip,
 }: {
   listen: boolean;
   onListen: (v: boolean) => void;
   /** Telas estreitas (celulares pequenos): rótulos curtos. */
   compact?: boolean;
+  /** Balão apontando para o interruptor Ouvir | Tocar. */
+  tip?: ReactNode;
 }) {
   const viewMode = useSettings((st) => st.viewMode);
   const instrument = useSettings((st) => st.instrument);
   const set = useSettings((st) => st.set);
   return (
     <View style={s.switches}>
-      <Segmented
-        compact
-        options={[
-          { value: 'listen', label: 'Ouvir' },
-          { value: 'play', label: 'Tocar' },
-        ]}
-        value={listen ? 'listen' : 'play'}
-        onChange={(v) => onListen(v === 'listen')}
-      />
+      <View>
+        <Segmented
+          compact
+          options={[
+            { value: 'listen', label: 'Ouvir' },
+            { value: 'play', label: 'Tocar' },
+          ]}
+          value={listen ? 'listen' : 'play'}
+          onChange={(v) => onListen(v === 'listen')}
+        />
+        {tip}
+      </View>
       <Segmented
         compact
         options={[
@@ -826,6 +865,8 @@ const s = StyleSheet.create({
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
   tip: { position: 'absolute', left: 168, zIndex: 20, flexDirection: 'row', alignItems: 'center', maxWidth: 360 },
+  // Balão abaixo do interruptor Ouvir | Tocar (primeiro hino).
+  tocarTip: { position: 'absolute', top: 40, right: 0, zIndex: 20, alignItems: 'flex-end', width: 300 },
   // Balão abaixo do botão de ajustes (seta para cima).
   tipTop: { position: 'absolute', top: 42, right: -4, zIndex: 20, alignItems: 'flex-end', width: 330 },
   tipArrowUp: {
