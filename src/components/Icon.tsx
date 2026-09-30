@@ -28,6 +28,7 @@ export type IconName =
   | 'starOutline'
   | 'chevronRight'
   | 'touch'
+  | 'sliders'
   | 'cable';
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
@@ -110,6 +111,14 @@ export function Icon({ name, size = 22, color }: { name: IconName; size?: number
       {name === 'chevronRight' ? <Path d="M9 6l6 6-6 6" {...stroke} strokeWidth={2} /> : null}
       {name === 'plus' ? <Path d="M12 5v14M5 12h14" {...stroke} strokeWidth={2.2} /> : null}
       {name === 'minus' ? <Path d="M5 12h14" {...stroke} strokeWidth={2.2} /> : null}
+      {name === 'sliders' ? (
+        <>
+          <Path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" {...stroke} />
+          <Circle cx={15} cy={6} r={2} {...stroke} />
+          <Circle cx={9} cy={12} r={2} {...stroke} />
+          <Circle cx={17} cy={18} r={2} {...stroke} />
+        </>
+      ) : null}
       {name === 'check' ? <Path d="M5 12.5l4.5 4.5L19 7.5" {...stroke} strokeWidth={2.2} /> : null}
       {name === 'touch' ? (
         <>

@@ -117,7 +117,8 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   };
 
   // ------------------------------------------------------------- painel
-  const [panelState, setPanel] = useState(true);
+  // O hino abre direto na tela de tocar; os ajustes ficam no botão do topo.
+  const [panelState, setPanel] = useState(false);
   const [tab, setTab] = useState<Tab>('practice');
   const [showVoices, setShowVoices] = useState(false);
   const playing = p.status === 'playing' || p.status === 'waiting';
@@ -533,15 +534,42 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           />
         )}
 
-        {/* Enquanto toca: pausar e a linha do tempo (também arrastável) */}
+        {/* Barra do topo: voltar, tocar/pausar, linha do tempo, ajustes e interruptores */}
         {!panel || playing ? (
           <View style={s.floating} pointerEvents="box-none">
-            <RoundButton icon="pause" size={36} onPress={openPanel} accessibilityLabel="Pausar e abrir ajustes" />
+            <RoundButton icon="back" size={36} onPress={onExit} accessibilityLabel="Voltar ao hinário" />
+            {playing ? (
+              <RoundButton icon="pause" size={36} onPress={() => p.pause()} accessibilityLabel="Pausar" />
+            ) : (
+              <RoundButton icon="play" size={40} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
+            )}
             <View style={s.floatingTrack}>
               <Scrubber thin onPaper={onPaper} measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </View>
+            <RoundButton icon="sliders" size={36} onPress={openPanel} accessibilityLabel="Ajustes" />
             <ModeSwitches />
           </View>
+        ) : null}
+
+        {/* Dica (só na primeira vez), perto do botão de ajustes */}
+        {!panel && !settings.tipInputSeen ? (
+          <Animated.View entering={FadeIn.delay(600).duration(250)} style={s.tipTop}>
+            <View style={[s.tipArrowUp, { borderBottomColor: pal.primary }]} />
+            <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
+              <Text style={[type.regular, s.tipText, { color: pal.primaryText }]}>
+                <Text style={type.bold}>Dica: </Text>
+                para o app reconhecer bem as notas, use um modo por vez, o microfone ou as teclas da tela. Escolha em Ajustes › Ouvir você.
+              </Text>
+              <Pressable
+                onPress={() => settings.set({ tipInputSeen: true })}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar dica"
+                style={s.tipClose}>
+                <Icon name="close" size={16} color={pal.primaryText} />
+              </Pressable>
+            </View>
+          </Animated.View>
         ) : null}
 
         {waitText && !panel ? (
@@ -776,6 +804,18 @@ const s = StyleSheet.create({
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
   tip: { position: 'absolute', left: 168, zIndex: 20, flexDirection: 'row', alignItems: 'center', maxWidth: 360 },
+  // Balão abaixo do botão de ajustes (seta para cima).
+  tipTop: { position: 'absolute', top: 50, right: 300, zIndex: 20, alignItems: 'flex-end', maxWidth: 360 },
+  tipArrowUp: {
+    width: 0,
+    height: 0,
+    marginRight: 14,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
   tipArrow: {
     width: 0,
     height: 0,
