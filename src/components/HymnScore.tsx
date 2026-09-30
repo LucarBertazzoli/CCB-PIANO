@@ -213,7 +213,8 @@ export const HymnScore = memo(function HymnScore({
     },
     (system, prev) => {
       if (system !== prev) {
-        const target = topPad + system * systemHeight - gap * 4;
+        // Primeira linha: volta ao topo, com o número e o título do hino à vista.
+        const target = system === 0 ? 0 : topPad + system * systemHeight - gap * 4;
         scrollTo(scrollRef, 0, Math.max(0, target), true);
       }
     },

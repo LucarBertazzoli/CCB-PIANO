@@ -35,7 +35,8 @@ direita), inferior (mão esquerda) e pedaleira, o aluno tocando as duas mãos e
 a pedaleira, modo espera, microfone com sensibilidade alta, teclas pequenas,
 volume médio, fonte serifada, cores ligadas (mão direita, mão esquerda e
 pedaleira cada uma com a sua cor) e destaque #D81B60. No canto superior direito da
-tela de tocar ficam dois interruptores: **Partitura | Notas** e **Órgão | Piano**.
+tela de tocar ficam três interruptores: **Ouvir | Tocar** (começa em Tocar),
+**Partitura | Notas** e **Órgão | Piano**. O hino abre direto na tela de tocar.
 No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
 
 ## O que já funciona

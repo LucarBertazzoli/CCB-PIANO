@@ -50,6 +50,8 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'input', label: 'Ouvir você', icon: 'mic' },
   { id: 'look', label: 'Aparência', icon: 'contrast' },
 ];
+/** Altura da barra do topo (fica acima da música, sem cobrir a partitura). */
+const TOP_BAR = 52;
 /** Largura de referência de uma tecla branca (teclas pequenas). */
 const KEY_PX = 20;
 const APP_YOU = [
@@ -93,6 +95,8 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
   const [parts, setParts] = useState<Record<Part, boolean>>({ right: true, left: true, pedal: true });
   const [customVoices, setCustomVoices] = useState<Voice[] | null>(null);
   const [waitMode, setWaitMode] = useState(true);
+  // Ouvir: o app toca o hino inteiro. Tocar (padrão): você toca e o app acompanha.
+  const [listenOnly, setListenOnly] = useState(false);
   const [bpm, setBpm] = useState(song.tempo);
   const [bpmText, setBpmText] = useState(String(song.tempo));
 
@@ -100,7 +104,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     const chosen = customVoices ?? (Object.keys(parts) as Part[]).filter((k) => parts[k]).flatMap((k) => PART_VOICES[k]);
     return organ ? chosen : chosen.filter((v) => v !== 'pedal');
   }, [customVoices, parts, organ]);
-  const mode: PracticeMode = voices.length === 0 ? 'demo' : waitMode ? 'wait' : 'rhythm';
+  const mode: PracticeMode = listenOnly || voices.length === 0 ? 'demo' : waitMode ? 'wait' : 'rhythm';
 
   const p = usePractice({
     song,
@@ -191,6 +195,8 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
 
   // ------------------------------------------------------------- teclados
   const usableWidth = width - insets.left - insets.right;
+  // Celulares pequenos (ex.: iPhone SE deitado): barra do topo mais enxuta.
+  const compactBar = usableWidth < 760;
   const hasPedal = organ && p.song.notes.some((n) => n.voice === 'pedal');
   const viewMode = settings.viewMode;
   const tlNotes = p.timeline.notes;
@@ -222,7 +228,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
       ? Math.round(Math.max(44, Math.min(90, height * 0.125)))
       : Math.round(Math.max(70, Math.min(170, height * (viewMode === 'page' ? 0.2 : 0.24))));
   const consoleHeight = (twoManuals ? manualHeight * 2 + 2 : manualHeight) + pedalHeight;
-  const stageHeight = Math.max(120, height - insets.top - insets.bottom - consoleHeight);
+  const stageHeight = Math.max(120, height - insets.top - insets.bottom - consoleHeight - TOP_BAR);
   const preferFlats = p.song.keySignature < 0;
   const highwayNotes = useMemo(() => tlNotes.filter((n) => n.voice !== 'pedal'), [tlNotes]);
   const session = p.session;
@@ -272,7 +278,7 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
 
   // ------------------------------------------------------------- abas do painel
   const practiceTab = (
-    <View style={s.columns}>
+    <View style={[s.columns, compactBar && s.columnsNarrow]}>
       <View style={s.column}>
         <SectionTitle>Quem toca</SectionTitle>
         <Glass>
@@ -514,6 +520,43 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
         s.root,
         { backgroundColor: pal.bg, paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
       ]}>
+      {/* ---------------------------------------------------- barra do topo: voltar, tocar/pausar, linha do tempo, ajustes e interruptores */}
+      <View style={[s.topBar, { height: TOP_BAR, backgroundColor: pal.bg }]}>
+        <RoundButton icon="back" size={36} onPress={onExit} accessibilityLabel="Voltar ao hinário" />
+        {playing ? (
+          <RoundButton icon="pause" size={36} onPress={() => p.pause()} accessibilityLabel="Pausar" />
+        ) : (
+          <RoundButton icon="play" size={40} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
+        )}
+        <View style={s.floatingTrack}>
+          <Scrubber thin measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
+        </View>
+        <View>
+          <RoundButton icon="sliders" size={36} onPress={openPanel} accessibilityLabel="Ajustes" />
+          {/* Dica (só na primeira vez), logo abaixo do botão de ajustes */}
+          {!panel && !settings.tipInputSeen ? (
+            <Animated.View entering={FadeIn.delay(600).duration(250)} style={s.tipTop}>
+              <View style={[s.tipArrowUp, { borderBottomColor: pal.primary }]} />
+              <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
+                <Text style={[type.regular, s.tipText, { color: pal.primaryText }]}>
+                  <Text style={type.bold}>Dica: </Text>
+                  para o app reconhecer bem as notas, use um modo por vez, o microfone ou as teclas da tela. Escolha em Ajustes › Ouvir você.
+                </Text>
+                <Pressable
+                  onPress={() => settings.set({ tipInputSeen: true })}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar dica"
+                  style={s.tipClose}>
+                  <Icon name="close" size={16} color={pal.primaryText} />
+                </Pressable>
+              </View>
+            </Animated.View>
+          ) : null}
+        </View>
+        <ModeSwitches listen={listenOnly} onListen={setListenOnly} compact={compactBar} />
+      </View>
+
       {/* ---------------------------------------------------- música */}
       <View style={{ height: stageHeight }}>
         {onPaper ? (
@@ -533,44 +576,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
             preferFlats={preferFlats}
           />
         )}
-
-        {/* Barra do topo: voltar, tocar/pausar, linha do tempo, ajustes e interruptores */}
-        {!panel || playing ? (
-          <View style={s.floating} pointerEvents="box-none">
-            <RoundButton icon="back" size={36} onPress={onExit} accessibilityLabel="Voltar ao hinário" />
-            {playing ? (
-              <RoundButton icon="pause" size={36} onPress={() => p.pause()} accessibilityLabel="Pausar" />
-            ) : (
-              <RoundButton icon="play" size={40} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
-            )}
-            <View style={s.floatingTrack}>
-              <Scrubber thin onPaper={onPaper} measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
-            </View>
-            <RoundButton icon="sliders" size={36} onPress={openPanel} accessibilityLabel="Ajustes" />
-            <ModeSwitches />
-          </View>
-        ) : null}
-
-        {/* Dica (só na primeira vez), perto do botão de ajustes */}
-        {!panel && !settings.tipInputSeen ? (
-          <Animated.View entering={FadeIn.delay(600).duration(250)} style={s.tipTop}>
-            <View style={[s.tipArrowUp, { borderBottomColor: pal.primary }]} />
-            <View style={[s.tipBody, { backgroundColor: pal.primary }]}>
-              <Text style={[type.regular, s.tipText, { color: pal.primaryText }]}>
-                <Text style={type.bold}>Dica: </Text>
-                para o app reconhecer bem as notas, use um modo por vez, o microfone ou as teclas da tela. Escolha em Ajustes › Ouvir você.
-              </Text>
-              <Pressable
-                onPress={() => settings.set({ tipInputSeen: true })}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar dica"
-                style={s.tipClose}>
-                <Icon name="close" size={16} color={pal.primaryText} />
-              </Pressable>
-            </View>
-          </Animated.View>
-        ) : null}
 
         {waitText && !panel ? (
           <View style={[s.waitBadge, { backgroundColor: pal.surface, borderColor: pal.border }]} pointerEvents="none">
@@ -614,6 +619,8 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
           style={[
             StyleSheet.absoluteFill,
             {
+              // Acima da barra do topo.
+              zIndex: 30,
               backgroundColor: withAlpha(pal.bg, 0.93),
               paddingTop: insets.top + 10,
               paddingLeft: insets.left + 14,
@@ -645,7 +652,6 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
               </View>
               <Scrubber measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </Glass>
-            <ModeSwitches stacked />
             <RoundButton icon="restart" onPress={() => p.seek(0)} accessibilityLabel="Voltar ao começo" />
             <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
           </View>
@@ -703,19 +709,37 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
 }
 
 /**
- * Os dois interruptores do canto superior direito: como ver a música
- * (Partitura ou Notas caindo) e qual instrumento (Órgão ou Piano).
+ * Os interruptores do canto superior direito: ouvir ou tocar, como ver a
+ * música (Partitura ou Notas caindo) e qual instrumento (Órgão ou Piano).
  */
-export function ModeSwitches({ stacked }: { stacked?: boolean }) {
+export function ModeSwitches({
+  listen,
+  onListen,
+  compact,
+}: {
+  listen: boolean;
+  onListen: (v: boolean) => void;
+  /** Telas estreitas (celulares pequenos): rótulos curtos. */
+  compact?: boolean;
+}) {
   const viewMode = useSettings((st) => st.viewMode);
   const instrument = useSettings((st) => st.instrument);
   const set = useSettings((st) => st.set);
   return (
-    <View style={stacked ? s.switchesStacked : s.switches}>
+    <View style={s.switches}>
       <Segmented
         compact
         options={[
-          { value: 'page', label: 'Partitura' },
+          { value: 'listen', label: 'Ouvir' },
+          { value: 'play', label: 'Tocar' },
+        ]}
+        value={listen ? 'listen' : 'play'}
+        onChange={(v) => onListen(v === 'listen')}
+      />
+      <Segmented
+        compact
+        options={[
+          { value: 'page', label: compact ? 'Pauta' : 'Partitura' },
           { value: 'falling', label: 'Notas' },
         ]}
         value={viewMode}
@@ -770,18 +794,16 @@ function PagePreview() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  floating: {
-    position: 'absolute',
-    top: 8,
-    left: 10,
-    right: 14,
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    paddingLeft: 10,
+    paddingRight: 12,
+    zIndex: 10,
   },
   floatingTrack: { flex: 1 },
-  switches: { flexDirection: 'row', gap: 8 },
-  switchesStacked: { gap: 4, alignItems: 'stretch' },
+  switches: { flexDirection: 'row', gap: 6 },
   waitBadge: {
     position: 'absolute',
     bottom: 10,
@@ -805,7 +827,7 @@ const s = StyleSheet.create({
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
   tip: { position: 'absolute', left: 168, zIndex: 20, flexDirection: 'row', alignItems: 'center', maxWidth: 360 },
   // Balão abaixo do botão de ajustes (seta para cima).
-  tipTop: { position: 'absolute', top: 50, right: 300, zIndex: 20, alignItems: 'flex-end', maxWidth: 360 },
+  tipTop: { position: 'absolute', top: 42, right: -4, zIndex: 20, alignItems: 'flex-end', width: 330 },
   tipArrowUp: {
     width: 0,
     height: 0,
@@ -835,6 +857,7 @@ const s = StyleSheet.create({
   content: { flex: 1 },
   contentInner: { paddingBottom: 24, maxWidth: 860 },
   columns: { flexDirection: 'row', gap: 14 },
+  columnsNarrow: { flexDirection: 'column' },
   column: { flex: 1, gap: 6 },
   stack: { gap: 8 },
   cards: { flexDirection: 'row', gap: 10 },
