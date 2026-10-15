@@ -30,7 +30,11 @@ export type IconName =
   | 'touch'
   | 'sliders'
   | 'cable'
-  | 'lock';
+  | 'lock'
+  | 'doc'
+  | 'slides'
+  | 'image'
+  | 'external';
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
   const stroke = { stroke: color, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
@@ -127,6 +131,26 @@ export function Icon({ name, size = 22, color }: { name: IconName; size?: number
           <Path d="M10.5 18.5h3" {...stroke} />
         </>
       ) : null}
+      {name === 'doc' ? (
+        <>
+          <Path d="M6 2.5h8l4.5 4.5v14.5H6z" {...stroke} />
+          <Path d="M14 2.5V7h4.5M9 12h6M9 15.5h6" {...stroke} />
+        </>
+      ) : null}
+      {name === 'slides' ? (
+        <>
+          <Rect x={2.5} y={4.5} width={19} height={13} rx={1.5} {...stroke} />
+          <Path d="M10 8.5v5l4.2-2.5zM9 21h6M12 17.5V21" {...stroke} />
+        </>
+      ) : null}
+      {name === 'image' ? (
+        <>
+          <Rect x={3} y={4} width={18} height={16} rx={2} {...stroke} />
+          <Circle cx={9} cy={9.5} r={1.7} {...stroke} />
+          <Path d="M21 15.5l-5-5L5 20" {...stroke} />
+        </>
+      ) : null}
+      {name === 'external' ? <Path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" {...stroke} /> : null}
       {name === 'lock' ? (
         <>
           <Rect x={5} y={10.5} width={14} height={10} rx={2} {...stroke} />

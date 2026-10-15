@@ -38,12 +38,25 @@ export function TrailList() {
       </View>
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listInner} showsVerticalScrollIndicator={false}>
+        <Pressable
+          onPress={() => router.push({ pathname: '/materiais/[id]', params: { id: `v${volume}` } })}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.card, styles.volumeCard, { backgroundColor: p.surface, borderColor: p.border }, pressed && { opacity: 0.8 }]}>
+          <Icon name="doc" size={20} color={p.primary} />
+          <View style={styles.headText}>
+            <Text style={[t.bold, styles.unitTitle, { color: p.text }]}>Materiais do {vol.title}</Text>
+            <Text style={[t.regular, styles.count, { color: p.textDim }]}>
+              Cadernos de atividades, planos de aula completos, manual das instrutoras e errata
+            </Text>
+          </View>
+          <Icon name="chevronRight" size={16} color={p.textFaint} />
+        </Pressable>
         {vol.units.map((u) => (
           <UnitCard key={u.id} unit={u} stars={stars} />
         ))}
         <Text style={[t.regular, styles.note, { color: p.textFaint }]}>
-          Toque cada lição em Tocar: com 1 estrela, a próxima é liberada. Os Estudos e Exercícios aparecem “em
-          preparação” até serem transcritos do livro do método.
+          Toque numa unidade para ver o plano de aula e as atividades publicadas pela CCB. Os Estudos e Exercícios
+          aparecem “em preparação” até serem transcritos do livro do método.
         </Text>
       </ScrollView>
     </View>
@@ -54,27 +67,40 @@ function UnitCard({ unit, stars }: { unit: Unit; stars: Record<string, number> }
   const p = usePalette();
   const t = useType();
   const { done, total } = unitProgress(unit, stars);
+  const files = (unit.mor?.groups ?? []).reduce((n, g) => n + g.files.length, 0) + (unit.mor ? 1 : 0);
+  const openUnit = () => router.push({ pathname: '/materiais/[id]', params: { id: unit.id } });
   return (
     <View style={[styles.card, { backgroundColor: p.surface, borderColor: p.border }]}>
-      <View style={styles.cardHead}>
+      <Pressable onPress={openUnit} accessibilityRole="button" accessibilityLabel={`Unidade ${unit.number}: ${unit.title}`} style={styles.cardHead}>
         <Text style={[t.bold, styles.unitNumber, { color: p.textDim }]}>UNIDADE {unit.number}</Text>
         <Text style={[t.bold, styles.unitTitle, { color: p.text }]} numberOfLines={1}>
           {unit.title}
         </Text>
         <Text style={[t.regular, styles.count, { color: p.textFaint }]}>
-          {total ? `${done} de ${total}` : 'em preparação'}
+          {total ? `${done} de ${total}` : 'teoria'}
         </Text>
-      </View>
+        <Icon name="chevronRight" size={14} color={p.textFaint} />
+      </Pressable>
       <View style={styles.lessons}>
         {unit.lessons.map((l) => (
           <LessonChip key={l.id} lesson={l} stars={stars[l.id] ?? 0} locked={!isUnlocked(l.id, stars)} />
         ))}
+        {files ? (
+          <Pressable
+            onPress={openUnit}
+            accessibilityRole="button"
+            accessibilityLabel={`Plano de aula e atividades da unidade ${unit.number}`}
+            style={({ pressed }) => [styles.chip, { borderColor: p.border }, pressed && { opacity: 0.7 }]}>
+            <Icon name="doc" size={12} color={p.textDim} />
+            <Text style={[t.regular, styles.chipText, { color: p.textDim }]}>Plano e atividades · {files}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
 }
 
-function LessonChip({ lesson, stars, locked }: { lesson: Lesson; stars: number; locked: boolean }) {
+export function LessonChip({ lesson, stars, locked }: { lesson: Lesson; stars: number; locked: boolean }) {
   const p = usePalette();
   const t = useType();
   if (!lesson.available) {
@@ -133,6 +159,7 @@ const styles = StyleSheet.create({
   unitNumber: { fontSize: 10, letterSpacing: 1.2 },
   unitTitle: { fontSize: 15, flexShrink: 1 },
   count: { fontSize: 11, marginLeft: 'auto' },
+  volumeCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   lessons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, height: 32, maxWidth: 300 },
   chipPending: { borderStyle: 'dashed' },

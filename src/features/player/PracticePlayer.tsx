@@ -28,7 +28,7 @@ export interface PracticePlayerProps {
   onExit: () => void;
   /** Chamado ao terminar no modo Tocar, com as estrelas (0–3). */
   onFinish?: (stars: number) => void;
-  /** Próxima lição da trilha: aparece no fim, depois de ao menos 1 estrela. */
+  /** Próxima lição da trilha: aparece quando a lição termina. */
   next?: { label: string; onPress: () => void };
 }
 
@@ -161,7 +161,6 @@ export function PracticePlayer({ song, onExit, onFinish, next }: PracticePlayerP
 
   // Avisa a trilha do resultado (uma vez por execução terminada no modo Tocar).
   const finishedScore = p.status === 'finished' && mode !== 'demo' ? p.score : null;
-  const earned = finishedScore?.stars ?? 0;
   useEffect(() => {
     if (finishedScore) onFinish?.(finishedScore.stars);
   }, [finishedScore, onFinish]);
@@ -697,7 +696,7 @@ export function PracticePlayer({ song, onExit, onFinish, next }: PracticePlayerP
               <Scrubber measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </Glass>
             <RoundButton icon="restart" onPress={() => p.seek(0)} accessibilityLabel="Voltar ao começo" />
-            {next && earned >= 1 ? (
+            {next && p.status === 'finished' ? (
               <Pressable
                 onPress={next.onPress}
                 accessibilityRole="button"

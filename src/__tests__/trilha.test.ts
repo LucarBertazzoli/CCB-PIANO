@@ -56,11 +56,21 @@ describe('trilha de aprendizagem', () => {
   it('libera as lições em ordem, por volume, com 1 estrela na anterior', () => {
     for (const v of TRILHA) {
       const ready = v.units.flatMap((u) => u.lessons.filter((l) => l.available));
-      expect(isUnlocked(ready[0].id, {})).toBe(true);
-      expect(isUnlocked(ready[1].id, {})).toBe(false);
-      expect(isUnlocked(ready[1].id, { [ready[0].id]: 1 })).toBe(true);
+      expect(isUnlocked(ready[1].id, {})).toBe(true); // em desenvolvimento: tudo aberto
+      expect(isUnlocked(ready[0].id, {}, true)).toBe(true);
+      expect(isUnlocked(ready[1].id, {}, true)).toBe(false);
+      expect(isUnlocked(ready[1].id, { [ready[0].id]: 1 }, true)).toBe(true);
       // A próxima lição não atravessa para o outro volume.
       expect(nextLesson(ready[ready.length - 1].id)).toBeUndefined();
+    }
+  });
+
+  it('tem todas as unidades do MOR, cada uma com plano de aula da CCB', () => {
+    expect(TRILHA[0].units.map((u) => u.number)).toEqual(Array.from({ length: 26 }, (_, i) => i + 1));
+    expect(TRILHA[1].units.map((u) => u.number)).toEqual(Array.from({ length: 35 }, (_, i) => i + 1));
+    for (const u of TRILHA.flatMap((v) => v.units)) {
+      expect(u.mor?.plano).toMatch(/^[\w-]{25,}$/);
+      for (const g of u.mor!.groups) for (const f of g.files) expect(f.id).toMatch(/^[\w-]{25,}$/);
     }
   });
 });

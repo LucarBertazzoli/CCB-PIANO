@@ -69,6 +69,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="tocar/[songId]" options={{ gestureEnabled: false }} />
             <Stack.Screen name="licao/[id]" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="materiais/[id]" />
           </Stack>
           {hydrated && !onboarded ? <Onboarding /> : null}
           <RotateGate />
