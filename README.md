@@ -1,3 +1,8 @@
+# Hinário CCB 2 (ramificação)
+
+> Cópia do Hinário CCB com a **Trilha de aprendizagem** do órgão. O app
+> principal continua no branch `main`.
+
 # CCB Piano
 
 App (Android, iOS e web) para aprender **teclado e órgão** com os **hinos da CCB**.
@@ -73,6 +78,21 @@ Fontes incluídas em `assets/fonts/`: OpenDyslexic (com a altura ajustada para
 os acentos do português) e DejaVu Sans (substituta da Verdana no Android). A
 serifada é a Source Serif 4 (`@expo-google-fonts/source-serif-4`); a fonte
 serifada do Claude não é livre, então usamos a mais parecida.
+
+## Trilha de aprendizagem (nesta ramificação)
+
+Na tela inicial, o interruptor **Hinário | Trilha de aprendizagem**. A trilha
+segue o MOR (Método de Estudos para Órgão Eletrônico da CCB), Volume →
+Unidade → lições, a partir de quando a aluna se senta ao órgão (as unidades só
+de teoria ficam de fora). Cada lição abre na mesma tela de tocar dos hinos,
+com o nome da lição no título. Dados em `src/content/trilha.ts`.
+
+- **Hinos**: os do hinário indicados em cada unidade (conferidos pela
+  tonalidade nas unidades “Estudo dos hinos em X Maior”) — já tocáveis.
+- **Escalas e arpejos** das tonalidades estudadas (`src/content/escalas.ts`).
+- **Estudos e Exercícios** do MOR: material de uso restrito da CCB; ficam
+  “em preparação” até a transcrição ser autorizada.
+- Volumes 3 e 4 do MOR ainda não foram publicados pela CCB.
 
 ## Rodando
 

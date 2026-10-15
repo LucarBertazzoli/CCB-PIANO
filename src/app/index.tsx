@@ -17,7 +17,8 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { synth } from '@/audio/synth';
 import { Icon } from '@/components/Icon';
 import { HYMN_GROUPS, hymnCatalog, type HymnEntry, type HymnGroup } from '@/content/hymnal';
-import { RoundButton } from '@/features/player/controls';
+import { RoundButton, Segmented } from '@/features/player/controls';
+import { TrailList } from '@/features/trilha/TrailList';
 import { AppearanceSettings } from '@/features/settings/AppearanceSettings';
 import { useSettings } from '@/store/settings';
 import { usePalette, useType } from '@/theme';
@@ -63,6 +64,7 @@ export default function Home() {
   const t = useType();
   const recentIds = useSettings((s) => s.recent);
   const [look, setLook] = useState(false);
+  const [section, setSection] = useState<'hinario' | 'trilha'>('hinario');
   const [group, setGroup] = useState<HymnGroup>('hinos');
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
@@ -130,162 +132,174 @@ export default function Home() {
     <SafeAreaView style={[styles.screen, { backgroundColor: p.bg }]} edges={['left', 'right']}>
       {/* Topo: marca discreta e aparência */}
       <View style={styles.top}>
-        <Text style={[t.bold, styles.brand, { color: p.textDim }]}>HINÁRIO  ·  CCB</Text>
+        <Text style={[t.bold, styles.brand, { color: p.textDim }]}>HINÁRIO  ·  CCB 2</Text>
+        <Segmented
+          options={[
+            { value: 'hinario', label: 'Hinário' },
+            { value: 'trilha', label: 'Trilha de aprendizagem' },
+          ]}
+          value={section}
+          onChange={(v) => setSection(v as 'hinario' | 'trilha')}
+        />
         <RoundButton icon="contrast" size={38} onPress={() => setLook(true)} accessibilityLabel="Aparência: fonte e cores" />
       </View>
 
-      <View style={styles.main}>
-        {/* Esquerda: pergunta, busca e recentes */}
-        <Animated.View entering={FadeInDown.duration(380)} style={styles.left}>
-          <Text style={[t.regular, styles.heading, { color: p.text }]}>Qual hino vamos tocar?</Text>
+      {section === 'trilha' ? (
+        <TrailList />
+      ) : (
+        <View style={styles.main}>
+          {/* Esquerda: pergunta, busca e recentes */}
+          <Animated.View entering={FadeInDown.duration(380)} style={styles.left}>
+            <Text style={[t.regular, styles.heading, { color: p.text }]}>Qual hino vamos tocar?</Text>
 
-          <View
-            style={[
-              styles.field,
-              { backgroundColor: p.surface, borderColor: focused ? withAlpha(p.text, 0.4) : p.border },
-            ]}>
-            <Icon name="search" size={18} color={p.textDim} />
-            <TextInput
-              value={query}
-              onChangeText={changeQuery}
-              onSubmitEditing={submit}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              placeholder={isCoro ? 'Número ou nome do coro' : 'Número ou nome do hino'}
-              placeholderTextColor={p.textFaint}
-              returnKeyType="go"
-              autoCorrect={false}
-              style={[t.regular, styles.input, { color: p.text }]}
-              accessibilityLabel="Buscar hino"
-            />
-            <Pressable
-              onPress={submit}
-              disabled={!hasQuery}
-              accessibilityRole="button"
-              accessibilityLabel="Abrir"
-              style={[styles.go, { backgroundColor: hasQuery ? p.primary : 'transparent' }]}>
-              <Icon name="arrowUp" size={18} color={hasQuery ? p.primaryText : p.textFaint} />
-            </Pressable>
-          </View>
+            <View
+              style={[
+                styles.field,
+                { backgroundColor: p.surface, borderColor: focused ? withAlpha(p.text, 0.4) : p.border },
+              ]}>
+              <Icon name="search" size={18} color={p.textDim} />
+              <TextInput
+                value={query}
+                onChangeText={changeQuery}
+                onSubmitEditing={submit}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                placeholder={isCoro ? 'Número ou nome do coro' : 'Número ou nome do hino'}
+                placeholderTextColor={p.textFaint}
+                returnKeyType="go"
+                autoCorrect={false}
+                style={[t.regular, styles.input, { color: p.text }]}
+                accessibilityLabel="Buscar hino"
+              />
+              <Pressable
+                onPress={submit}
+                disabled={!hasQuery}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir"
+                style={[styles.go, { backgroundColor: hasQuery ? p.primary : 'transparent' }]}>
+                <Icon name="arrowUp" size={18} color={hasQuery ? p.primaryText : p.textFaint} />
+              </Pressable>
+            </View>
 
-          <View style={styles.groups}>
-            {HYMN_GROUPS.map((g) => {
-              const on = g.id === group;
-              return (
-                <Pressable
-                  key={g.id}
-                  onPress={() => changeGroup(g.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  style={[styles.group, { backgroundColor: on ? p.primary : 'transparent', borderColor: on ? p.primary : p.border }]}>
-                  <Text style={[on ? t.bold : t.regular, styles.groupLabel, { color: on ? p.primaryText : p.text }]}>{g.label}</Text>
-                  <Text style={[t.regular, styles.groupCount, { color: on ? p.primaryText : p.textDim }]}>{GROUP_LISTS[g.id].length}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+            <View style={styles.groups}>
+              {HYMN_GROUPS.map((g) => {
+                const on = g.id === group;
+                return (
+                  <Pressable
+                    key={g.id}
+                    onPress={() => changeGroup(g.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    style={[styles.group, { backgroundColor: on ? p.primary : 'transparent', borderColor: on ? p.primary : p.border }]}>
+                    <Text style={[on ? t.bold : t.regular, styles.groupLabel, { color: on ? p.primaryText : p.text }]}>{g.label}</Text>
+                    <Text style={[t.regular, styles.groupCount, { color: on ? p.primaryText : p.textDim }]}>{GROUP_LISTS[g.id].length}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-          {hasQuery ? (
-            <View style={[styles.results, { backgroundColor: p.surface, borderColor: p.border }]}>
-              {results.length ? (
-                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                  {results.map((h, i) => (
+            {hasQuery ? (
+              <View style={[styles.results, { backgroundColor: p.surface, borderColor: p.border }]}>
+                {results.length ? (
+                  <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    {results.map((h, i) => (
+                      <Pressable
+                        key={h.songId}
+                        onPress={() => open(h)}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [
+                          styles.result,
+                          i < results.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: p.border },
+                          pressed && { backgroundColor: p.surfaceStrong },
+                        ]}>
+                        <Text style={[t.bold, styles.resultNumber, { color: p.text }]}>{h.number}</Text>
+                        <Text style={[t.regular, styles.resultTitle, { color: p.text }]} numberOfLines={1}>
+                          {h.title}
+                        </Text>
+                        <Icon name="chevronRight" size={16} color={p.textFaint} />
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={[t.regular, styles.empty, { color: p.textDim }]}>
+                    Nada encontrado com “{query.trim()}”.
+                  </Text>
+                )}
+              </View>
+            ) : recent.length ? (
+              <View style={styles.recentBox}>
+                <Text style={[t.bold, styles.caption, { color: p.textFaint }]}>RECENTES</Text>
+                <View style={styles.recentRow}>
+                  {recent.map((h) => (
                     <Pressable
                       key={h.songId}
                       onPress={() => open(h)}
                       accessibilityRole="button"
-                      style={({ pressed }) => [
-                        styles.result,
-                        i < results.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: p.border },
-                        pressed && { backgroundColor: p.surfaceStrong },
-                      ]}>
-                      <Text style={[t.bold, styles.resultNumber, { color: p.text }]}>{h.number}</Text>
-                      <Text style={[t.regular, styles.resultTitle, { color: p.text }]} numberOfLines={1}>
+                      accessibilityLabel={`${label(h)}, ${h.title}`}
+                      style={({ pressed }) => [styles.chip, { borderColor: p.border }, pressed && { backgroundColor: p.surface }]}>
+                      <Text style={[t.bold, styles.chipNumber, { color: p.text }]}>{h.kind === 'coro' ? `C${h.number}` : h.number}</Text>
+                      <Text style={[t.regular, styles.chipTitle, { color: p.textDim }]} numberOfLines={1}>
                         {h.title}
                       </Text>
-                      <Icon name="chevronRight" size={16} color={p.textFaint} />
                     </Pressable>
                   ))}
-                </ScrollView>
-              ) : (
-                <Text style={[t.regular, styles.empty, { color: p.textDim }]}>
-                  Nada encontrado com “{query.trim()}”.
-                </Text>
-              )}
-            </View>
-          ) : recent.length ? (
-            <View style={styles.recentBox}>
-              <Text style={[t.bold, styles.caption, { color: p.textFaint }]}>RECENTES</Text>
-              <View style={styles.recentRow}>
-                {recent.map((h) => (
-                  <Pressable
-                    key={h.songId}
-                    onPress={() => open(h)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label(h)}, ${h.title}`}
-                    style={({ pressed }) => [styles.chip, { borderColor: p.border }, pressed && { backgroundColor: p.surface }]}>
-                    <Text style={[t.bold, styles.chipNumber, { color: p.text }]}>{h.kind === 'coro' ? `C${h.number}` : h.number}</Text>
-                    <Text style={[t.regular, styles.chipTitle, { color: p.textDim }]} numberOfLines={1}>
-                      {h.title}
-                    </Text>
-                  </Pressable>
-                ))}
+                </View>
               </View>
-            </View>
-          ) : (
-            <Text style={[t.regular, styles.tip, { color: p.textFaint }]}>
-              Digite o número ou parte do nome — ou gire a roda ao lado.
-            </Text>
-          )}
-        </Animated.View>
+            ) : (
+              <Text style={[t.regular, styles.tip, { color: p.textFaint }]}>
+                Digite o número ou parte do nome — ou gire a roda ao lado.
+              </Text>
+            )}
+          </Animated.View>
 
-        {/* Direita: roda que gira até o hino */}
-        <Animated.View entering={FadeIn.duration(500).delay(120)} style={styles.right}>
-          <View style={[styles.wheelCard, { backgroundColor: p.bg }]}>
-            <View pointerEvents="none" style={[styles.band, { top: pad, backgroundColor: p.surfaceStrong }]}>
-              <View style={[styles.bandMark, { backgroundColor: p.primary }]} />
+          {/* Direita: roda que gira até o hino */}
+          <Animated.View entering={FadeIn.duration(500).delay(120)} style={styles.right}>
+            <View style={[styles.wheelCard, { backgroundColor: p.bg }]}>
+              <View pointerEvents="none" style={[styles.band, { top: pad, backgroundColor: p.surfaceStrong }]}>
+                <View style={[styles.bandMark, { backgroundColor: p.primary }]} />
+              </View>
+              <ScrollView
+                ref={wheel}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={ITEM}
+                decelerationRate="fast"
+                onScroll={onWheelScroll}
+                scrollEventThrottle={16}
+                contentContainerStyle={{ paddingVertical: pad }}>
+                {list.map((h, i) => {
+                  const d = Math.abs(i - index);
+                  if (d > 8) return <View key={h.songId} style={{ height: ITEM }} />;
+                  return (
+                    <Pressable
+                      key={h.songId}
+                      onPress={() => (i === index ? open(h) : scrollTo(i))}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${label(h)}, ${h.title}`}
+                      style={[styles.wheelItem, { opacity: d === 0 ? 1 : d === 1 ? 0.55 : 0.28 }]}>
+                      <Text style={[t.bold, styles.wheelNumber, { color: p.text }]}>{h.number}</Text>
+                      <Text style={[d === 0 ? t.bold : t.regular, styles.wheelTitle, { color: p.text }]} numberOfLines={1}>
+                        {h.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Fade color={p.bg} />
             </View>
-            <ScrollView
-              ref={wheel}
-              showsVerticalScrollIndicator={false}
-              snapToInterval={ITEM}
-              decelerationRate="fast"
-              onScroll={onWheelScroll}
-              scrollEventThrottle={16}
-              contentContainerStyle={{ paddingVertical: pad }}>
-              {list.map((h, i) => {
-                const d = Math.abs(i - index);
-                if (d > 8) return <View key={h.songId} style={{ height: ITEM }} />;
-                return (
-                  <Pressable
-                    key={h.songId}
-                    onPress={() => (i === index ? open(h) : scrollTo(i))}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label(h)}, ${h.title}`}
-                    style={[styles.wheelItem, { opacity: d === 0 ? 1 : d === 1 ? 0.55 : 0.28 }]}>
-                    <Text style={[t.bold, styles.wheelNumber, { color: p.text }]}>{h.number}</Text>
-                    <Text style={[d === 0 ? t.bold : t.regular, styles.wheelTitle, { color: p.text }]} numberOfLines={1}>
-                      {h.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Fade color={p.bg} />
-          </View>
 
-          <Pressable
-            onPress={() => current && open(current)}
-            accessibilityRole="button"
-            accessibilityLabel={current ? `Tocar ${label(current)}` : 'Tocar'}
-            style={({ pressed }) => [styles.play, { backgroundColor: p.primary }, pressed && { opacity: 0.8 }]}>
-            <Icon name="play" size={16} color={p.primaryText} />
-            <Text style={[t.bold, styles.playText, { color: p.primaryText }]}>
-              {current ? `Tocar ${label(current).toLowerCase()}` : 'Tocar'}
-            </Text>
-          </Pressable>
-        </Animated.View>
-      </View>
+            <Pressable
+              onPress={() => current && open(current)}
+              accessibilityRole="button"
+              accessibilityLabel={current ? `Tocar ${label(current)}` : 'Tocar'}
+              style={({ pressed }) => [styles.play, { backgroundColor: p.primary }, pressed && { opacity: 0.8 }]}>
+              <Icon name="play" size={16} color={p.primaryText} />
+              <Text style={[t.bold, styles.playText, { color: p.primaryText }]}>
+                {current ? `Tocar ${label(current).toLowerCase()}` : 'Tocar'}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      )}
 
       {look ? (
         <Animated.View entering={FadeIn.duration(160)} style={[StyleSheet.absoluteFill, styles.sheet, { backgroundColor: withAlpha(p.bg, 0.96) }]}>

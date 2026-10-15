@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "CCB Piano",
-    "slug": "ccb-piano",
+    "name": "Hinário CCB 2",
+    "slug": "ccb-piano-2",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
-    "scheme": "ccbpiano",
+    "scheme": "ccbpiano2",
     "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -24,8 +24,8 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "Hinário CCB",
-      "shortName": "Hinário",
+      "name": "Hinário CCB 2",
+      "shortName": "Hinário 2",
       "lang": "pt-BR",
       "themeColor": "#000000",
       "backgroundColor": "#000000",
