@@ -70,7 +70,9 @@ export interface SettingsState {
   tipInputSeen: boolean;
   /** Já abriu algum hino (o primeiro abre em Ouvir, tocando sozinho). */
   firstHymnDone: boolean;
-  set: (patch: Partial<Omit<SettingsState, 'set'>>) => void;
+  /** Trilha: melhor nota (0–3 estrelas) de cada lição já tocada. */
+  lessonStars: Record<string, number>;
+  set:(patch: Partial<Omit<SettingsState, 'set'>>) => void;
 }
 
 const DEFAULTS: Omit<SettingsState, 'set'> = {
@@ -97,6 +99,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   onboarded: false,
   tipInputSeen: false,
   firstHymnDone: false,
+  lessonStars: {},
 };
 
 export const useSettings = create<SettingsState>()(

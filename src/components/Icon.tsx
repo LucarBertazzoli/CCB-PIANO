@@ -29,7 +29,8 @@ export type IconName =
   | 'chevronRight'
   | 'touch'
   | 'sliders'
-  | 'cable';
+  | 'cable'
+  | 'lock';
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
   const stroke = { stroke: color, strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
@@ -124,6 +125,12 @@ export function Icon({ name, size = 22, color }: { name: IconName; size?: number
         <>
           <Rect x={6} y={2.5} width={12} height={19} rx={2.5} {...stroke} />
           <Path d="M10.5 18.5h3" {...stroke} />
+        </>
+      ) : null}
+      {name === 'lock' ? (
+        <>
+          <Rect x={5} y={10.5} width={14} height={10} rx={2} {...stroke} />
+          <Path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" {...stroke} />
         </>
       ) : null}
       {name === 'cable' ? (

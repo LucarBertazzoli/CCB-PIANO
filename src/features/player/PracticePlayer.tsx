@@ -26,6 +26,10 @@ import { usePractice } from './use-practice';
 export interface PracticePlayerProps {
   song: Song;
   onExit: () => void;
+  /** Chamado ao terminar no modo Tocar, com as estrelas (0–3). */
+  onFinish?: (stars: number) => void;
+  /** Próxima lição da trilha: aparece no fim, depois de ao menos 1 estrela. */
+  next?: { label: string; onPress: () => void };
 }
 
 type Part = 'right' | 'left' | 'pedal';
@@ -83,7 +87,7 @@ const UNIT_NAME: Record<string, string> = { q: 'semínimas', e: 'colcheias', 'q.
  * abre o painel (inspirado no Artie): linha do tempo arrastável em cima e os
  * ajustes organizados em abas.
  */
-export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
+export function PracticePlayer({ song, onExit, onFinish, next }: PracticePlayerProps) {
   const settings = useSettings();
   const pal = usePalette();
   const type = useType();
@@ -154,6 +158,13 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
     useSettings.getState().set({ firstHymnDone: true });
     startPractice();
   }, [firstHymn, startPractice]);
+
+  // Avisa a trilha do resultado (uma vez por execução terminada no modo Tocar).
+  const finishedScore = p.status === 'finished' && mode !== 'demo' ? p.score : null;
+  const earned = finishedScore?.stars ?? 0;
+  useEffect(() => {
+    if (finishedScore) onFinish?.(finishedScore.stars);
+  }, [finishedScore, onFinish]);
 
   // ------------------------------------------------------------- entrada (tela/MIDI/microfone)
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
@@ -686,7 +697,20 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
               <Scrubber measureStarts={measures} secondsPerBeat={p.timeline.secondsPerBeat} progress={p.progress} onSeek={p.seek} />
             </Glass>
             <RoundButton icon="restart" onPress={() => p.seek(0)} accessibilityLabel="Voltar ao começo" />
-            <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
+            {next && earned >= 1 ? (
+              <Pressable
+                onPress={next.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={`Próxima lição: ${next.label}`}
+                style={({ pressed }) => [s.nextButton, { backgroundColor: pal.primary }, pressed && { opacity: 0.8 }]}>
+                <Text style={[type.bold, s.nextText, { color: pal.primaryText }]} numberOfLines={1}>
+                  Próxima lição
+                </Text>
+                <Icon name="chevronRight" size={18} color={pal.primaryText} />
+              </Pressable>
+            ) : (
+              <RoundButton icon="play" size={52} active onPress={play} accessibilityLabel={p.status === 'paused' ? 'Continuar' : 'Tocar'} />
+            )}
           </View>
 
           {/* Dica (só na primeira vez): um modo de reconhecimento por vez */}
@@ -863,6 +887,8 @@ const s = StyleSheet.create({
   measure: { fontSize: 11 },
   result: { fontSize: 13, marginLeft: 4 },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  nextButton: { height: 52, borderRadius: 26, paddingLeft: 20, paddingRight: 14, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  nextText: { fontSize: 15 },
   body: { flex: 1, flexDirection: 'row', gap: 14, marginTop: 10 },
   tip: { position: 'absolute', left: 168, zIndex: 20, flexDirection: 'row', alignItems: 'center', maxWidth: 360 },
   // Balão abaixo do interruptor Ouvir | Tocar (primeiro hino).

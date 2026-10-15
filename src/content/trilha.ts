@@ -14,8 +14,9 @@ import type { Song } from './types';
  * Conteúdo de cada lição:
  * - Hinos: os do hinário que o MOR indica naquela unidade (já disponíveis).
  * - Escalas e arpejos das tonalidades estudadas (gerados pelo app).
- * - Estudos e Exercícios do MOR: composições do método, de uso restrito da CCB.
- *   Ficam listados “em preparação” até a transcrição ser autorizada.
+ * - Estudos e Exercícios do MOR: partituras do livro “Estudos para Órgão
+ *   Eletrônico aplicados ao Hinário”. Ficam “em preparação” até serem
+ *   transcritas do livro (os planos de aula só citam as páginas).
  */
 
 export type LessonKind = 'hino' | 'escala' | 'arpejo' | 'estudo' | 'exercicio' | 'pedaleira';
@@ -150,11 +151,36 @@ export function getLesson(id: string): { lesson: Lesson; unit: Unit } | undefine
   return BY_ID.get(id);
 }
 
-/** Lição seguinte disponível na trilha (para o botão “próxima”). */
+/** Quantas lições da unidade já foram tocadas com ao menos 1 estrela. */
+export function unitProgress(u: Unit, stars: Record<string, number>): { done: number; total: number } {
+  const ready = u.lessons.filter((l) => l.available);
+  return { done: ready.filter((l) => (stars[l.id] ?? 0) >= 1).length, total: ready.length };
+}
+
+/** Lições que já podem ser tocadas, na ordem do volume. */
+function playable(volume: 1 | 2): Lesson[] {
+  return TRILHA.find((v) => v.volume === volume)!.units.flatMap((u) => u.lessons.filter((l) => l.available));
+}
+
+/** Lição seguinte disponível no mesmo volume (para o botão “Próxima lição”). */
 export function nextLesson(id: string): Lesson | undefined {
-  const all = TRILHA.flatMap((v) => v.units.flatMap((u) => u.lessons)).filter((l) => l.available);
+  const found = BY_ID.get(id);
+  if (!found) return undefined;
+  const all = playable(found.unit.volume);
   const i = all.findIndex((l) => l.id === id);
   return i >= 0 ? all[i + 1] : undefined;
+}
+
+/**
+ * A trilha segue a ordem do MOR: cada volume começa liberado na primeira
+ * lição, e a seguinte abre quando a anterior for tocada com ao menos 1 estrela.
+ */
+export function isUnlocked(id: string, stars: Record<string, number>): boolean {
+  const found = BY_ID.get(id);
+  if (!found || !found.lesson.available) return false;
+  const all = playable(found.unit.volume);
+  const i = all.findIndex((l) => l.id === id);
+  return i <= 0 || (stars[all[i - 1].id] ?? 0) >= 1;
 }
 
 /**

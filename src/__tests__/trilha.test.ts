@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { getLesson, lessonSong, nextLesson, TRILHA } from '@/content/trilha';
+import { getLesson, isUnlocked, lessonSong, nextLesson, TRILHA } from '@/content/trilha';
 
 const KEY_OF: Record<string, number> = { Dó: 0, Fá: -1, Sol: 1, 'Si♭': -2, Ré: 2, 'Mi♭': -3, 'Lá♭': -4, 'Ré♭': -5 };
 
@@ -51,5 +51,16 @@ describe('trilha de aprendizagem', () => {
     const first = lessons.find(({ l }) => l.available)!.l;
     const next = nextLesson(first.id)!;
     expect(next.available).toBe(true);
+  });
+
+  it('libera as lições em ordem, por volume, com 1 estrela na anterior', () => {
+    for (const v of TRILHA) {
+      const ready = v.units.flatMap((u) => u.lessons.filter((l) => l.available));
+      expect(isUnlocked(ready[0].id, {})).toBe(true);
+      expect(isUnlocked(ready[1].id, {})).toBe(false);
+      expect(isUnlocked(ready[1].id, { [ready[0].id]: 1 })).toBe(true);
+      // A próxima lição não atravessa para o outro volume.
+      expect(nextLesson(ready[ready.length - 1].id)).toBeUndefined();
+    }
   });
 });
