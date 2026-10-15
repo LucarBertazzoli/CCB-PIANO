@@ -188,7 +188,7 @@ export default function Home() {
           {hasQuery ? (
             <View style={[styles.results, { backgroundColor: p.surface, borderColor: p.border }]}>
               {results.length ? (
-                <ScrollView keyboardShouldPersistTaps="handled">
+                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                   {results.map((h, i) => (
                     <Pressable
                       key={h.songId}
