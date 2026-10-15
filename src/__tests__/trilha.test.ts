@@ -64,13 +64,4 @@ describe('trilha de aprendizagem', () => {
       expect(nextLesson(ready[ready.length - 1].id)).toBeUndefined();
     }
   });
-
-  it('tem todas as unidades do MOR, cada uma com plano de aula da CCB', () => {
-    expect(TRILHA[0].units.map((u) => u.number)).toEqual(Array.from({ length: 26 }, (_, i) => i + 1));
-    expect(TRILHA[1].units.map((u) => u.number)).toEqual(Array.from({ length: 35 }, (_, i) => i + 1));
-    for (const u of TRILHA.flatMap((v) => v.units)) {
-      expect(u.mor?.plano).toMatch(/^[\w-]{25,}$/);
-      for (const g of u.mor!.groups) for (const f of g.files) expect(f.id).toMatch(/^[\w-]{25,}$/);
-    }
-  });
 });

@@ -1,18 +1,15 @@
 import { arpeggioSong, chromaticSong, KEYS, scaleSong, type ScaleKey } from './escalas';
 import { hymnCatalog } from './hymnal';
 import { getSong } from './index';
-import { MOR_UNIDADES } from './mor-materiais';
-import type { MorUnit } from './mor-tipos';
 import type { Song } from './types';
 
 /**
  * Trilha de aprendizagem do órgão, na ordem do MOR (Método de Estudos para
  * Órgão Eletrônico da CCB): Volume → Unidade → lições.
  *
- * Todas as unidades dos Volumes 1 e 2 estão aqui, com os materiais que a CCB
- * publica no site (plano de aula, atividades, cadernos). As unidades de
- * teoria não têm lições de tocar, só os materiais. Cada lição abre na mesma
- * tela de tocar dos hinos.
+ * Começa de quando a aluna se senta ao órgão para tocar: as unidades só de
+ * teoria (o som, notas, pauta, claves, figuras…) ficam de fora. Cada lição
+ * abre na mesma tela de tocar dos hinos.
  *
  * Conteúdo de cada lição:
  * - Hinos: os do hinário que o MOR indica naquela unidade (já disponíveis).
@@ -43,8 +40,6 @@ export interface Unit {
   number: number;
   title: string;
   lessons: Lesson[];
-  /** Materiais da CCB para a unidade (plano de aula e atividades). */
-  mor?: MorUnit;
 }
 
 const TITLES = new Map(hymnCatalog().filter((h) => h.kind === 'hino').map((h) => [h.number, h.title]));
@@ -144,22 +139,10 @@ const VOLUME_2: Unit[] = [
   ]),
 ];
 
-/** Todas as unidades do volume, na ordem do MOR: as de tocar e as de teoria. */
-function completo(volume: 1 | 2, tocar: Unit[]): Unit[] {
-  const byNumber = new Map(tocar.map((u) => [u.number, u]));
-  return MOR_UNIDADES.filter((m) => m.volume === volume).map(
-    (m) => ({ ...(byNumber.get(m.number) ?? { id: `v${volume}-u${m.number}`, volume, number: m.number, title: m.title, lessons: [] }), mor: m }),
-  );
-}
-
 export const TRILHA: { volume: 1 | 2; title: string; units: Unit[] }[] = [
-  { volume: 1, title: 'Volume 1', units: completo(1, VOLUME_1) },
-  { volume: 2, title: 'Volume 2', units: completo(2, VOLUME_2) },
+  { volume: 1, title: 'Volume 1', units: VOLUME_1 },
+  { volume: 2, title: 'Volume 2', units: VOLUME_2 },
 ];
-
-export function getUnit(id: string): Unit | undefined {
-  return TRILHA.flatMap((v) => v.units).find((u) => u.id === id);
-}
 
 const BY_ID = new Map<string, { lesson: Lesson; unit: Unit }>();
 for (const v of TRILHA) for (const u of v.units) for (const l of u.lessons) BY_ID.set(l.id, { lesson: l, unit: u });
