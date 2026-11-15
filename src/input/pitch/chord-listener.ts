@@ -62,6 +62,7 @@ const PROFILE_MARGIN_OCTAVE = 1.05;
 const AMBIGUOUS_FRAMES = 40;
 /** Amostras mínimas para usar o timbre aprendido de uma nota, e quantas guardar. */
 const LEARN_MIN = 3;
+const LEARN_ENABLED = false;
 const LEARN_KEEP = 12;
 
 function median(xs: number[]): number {
@@ -218,7 +219,9 @@ export class ChordListener {
       }
     }
     // Acorde inteiro confirmado e ainda soando: hora de aprender o timbre.
-    if (settled && this.entries.size >= 1 && [...this.entries.values()].every((e) => e.confirmed && e.absent === 0)) {
+    // Desligado: na avaliação longa (210 acordes) o timbre aprendido se
+    // contaminava e o app passava a perder notas. Fica o código para estudo.
+    if (LEARN_ENABLED && settled && this.entries.size >= 1 && [...this.entries.values()].every((e) => e.confirmed && e.absent === 0)) {
       this.learn(long, mid);
     }
     return out;
