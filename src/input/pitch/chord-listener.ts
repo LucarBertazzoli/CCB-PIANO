@@ -45,6 +45,8 @@ interface Entry {
   confirmed: boolean;
   held: boolean;
   absent: number;
+  /** Quadros seguidos em que a nota soa (nítida ou ambígua: pode ser harmônico de outra). */
+  ambiguous: number;
 }
 
 const HARMONICS = 8;
@@ -53,7 +55,19 @@ const MIN_RELATIVE = 0.12;
 /** Abaixo desta frequência a janela longa é necessária para separar meio tom. */
 const LOW_HZ = 220;
 /** Com timbre calibrado: quanto acima do esperado o harmônico precisa estar. */
-const PROFILE_MARGIN = 1.4;
+const PROFILE_MARGIN = 1.3;
+/** Na oitava os sons das duas teclas podem se anular em parte: margem menor. */
+const PROFILE_MARGIN_OCTAVE = 1.05;
+/** Quadros (~23 ms) de nota ambígua até valer pelo benefício da dúvida. */
+const AMBIGUOUS_FRAMES = 40;
+/** Amostras mínimas para usar o timbre aprendido de uma nota, e quantas guardar. */
+const LEARN_MIN = 3;
+const LEARN_KEEP = 12;
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
 /** A partir desta nota o ataque repetido é medido na janela curta. */
 const QUICK_SHORT_FROM = 60;
 /** Harmônicos testados (oitava, 12ª, 2 oitavas, 17ª, 19ª, 3 oitavas) e a distância em semitons. */
@@ -112,6 +126,7 @@ export class ChordListener {
           confirmed: false,
           held: false,
           absent: 0,
+          ambiguous: 0,
         },
       );
     }
@@ -176,6 +191,21 @@ export class ChordListener {
 
       // Logo depois de um ataque o espectro ainda está borrado: espera.
       if (!settled) continue;
+      // Benefício da dúvida: todas as outras notas do acorde já valeram e esta
+      // continua soando, só que pode ser harmônico de outra (oitava dobrada de
+      // verdade, com os sons se anulando em parte). Depois de ~1 s, vale.
+      // Conta o tempo em que a nota está audível (nítida ou ambígua): ela
+      // pode oscilar entre as duas de um quadro para o outro.
+      e.ambiguous = loudEnough && (m.ambiguous || m.present) ? e.ambiguous + 1 : 0;
+      // Só quando TODAS as outras já valeram de verdade: se várias estão só
+      // "ambíguas" (tocou uma nota e as outras são harmônicos dela), nada vale.
+      const othersDone = [...this.entries.values()].every((o) => o === e || o.confirmed);
+      if (othersDone && e.ambiguous >= AMBIGUOUS_FRAMES && !e.confirmed) {
+        e.confirmed = true;
+        e.held = true;
+        out.push({ type: 'on', midi: e.note.midi });
+        continue;
+      }
       if (present) {
         e.frames++;
         if (e.frames >= this.opts.confirmFrames) {
@@ -187,6 +217,10 @@ export class ChordListener {
         e.frames = 0;
       }
     }
+    // Acorde inteiro confirmado e ainda soando: hora de aprender o timbre.
+    if (settled && this.entries.size >= 1 && [...this.entries.values()].every((e) => e.confirmed && e.absent === 0)) {
+      this.learn(long, mid);
+    }
     return out;
   }
 
@@ -196,7 +230,10 @@ export class ChordListener {
     let best = this.harmonics(pick(midi), midi);
     // A nota pode ser só um harmônico de outra mais grave que está soando
     // (Dó2 soa também Dó3, Sol3, Dó4…). Aí ela não conta como tocada.
+    let ambiguous = false;
     if (best.present && !note.pedal && this.sounding.get(midi) === false) {
+      // Soa, mas pode ser só harmônico de uma nota mais grave.
+      ambiguous = true;
       best = { ...best, present: false };
     }
     if (this.opts.octaveTolerant && note.pedal) {
@@ -216,7 +253,7 @@ export class ChordListener {
         if (!own) best = { ...best, present: false };
       }
     }
-    return best;
+    return { ...best, ambiguous };
   }
 
   /**
@@ -224,6 +261,62 @@ export class ChordListener {
    * volume de cada harmônico (1º a 8º) em relação à fundamental.
    */
   profile: number[] | null = null;
+
+  /**
+   * Timbre aprendido tocando: para cada nota, amostras do volume de cada
+   * harmônico (relativo à fundamental), medidas quando a organista toca o
+   * acorde inteiro certo — aí se sabe quais notas soam e quais harmônicos são
+   * só de cada uma. Já inclui a cor da igreja e do microfone naquela nota.
+   */
+  learned = new Map<number, number[][]>();
+
+  /** Timbre da nota: o aprendido nela (ou numa vizinha), senão o calibrado. */
+  private profileFor(midi: number): number[] | null {
+    for (const d of [0, 1, -1, 2, -2]) {
+      const samples = this.learned.get(midi + d);
+      if (samples && samples.length >= LEARN_MIN) {
+        return Array.from({ length: HARMONICS }, (_, h) => {
+          if (h === 0) return 1;
+          const v = samples.map((x) => x[h]).filter(Number.isFinite);
+          if (v.length >= LEARN_MIN) return median(v);
+          return this.profile?.[h] ?? NaN;
+        });
+      }
+    }
+    return this.profile;
+  }
+
+  /** Acorde inteiro confirmado e soando: aprende o timbre de cada nota. */
+  private learn(long: Band, mid: Band): void {
+    const sounding = [...this.entries.values()].map((e) => e.note);
+    if (sounding.length < 1) return;
+    // Fontes de harmônicos: todas as notas do acorde (pedaleira também no 16').
+    const sources = sounding.flatMap((n) => (n.pedal ? [n.midi, n.midi - 12] : [n.midi])).map(midiToFrequency);
+    const shared = (freq: number, own: number) =>
+      sources.some((fp) => {
+        if (Math.abs(fp - own) < 0.01) return false;
+        const h = Math.round(freq / fp);
+        return h >= 1 && h <= 10 && Math.abs(1200 * Math.log2(freq / (h * fp))) < 40;
+      });
+    for (const n of sounding) {
+      if (n.pedal) continue;
+      const f = midiToFrequency(n.midi);
+      if (f < 80 || shared(f, f)) continue;
+      const b = f < LOW_HZ ? long : mid;
+      const a1 = this.peakNear(b, f);
+      if (a1 <= b.floor * 4) continue;
+      const sample = Array.from({ length: HARMONICS }, (_, i) => {
+        const h = i + 1;
+        if (h === 1) return 1;
+        if (f * h > 5000 || shared(f * h, f)) return NaN;
+        return this.magAt(b, f * h) / a1;
+      });
+      const list = this.learned.get(n.midi) ?? [];
+      list.push(sample);
+      if (list.length > LEARN_KEEP) list.shift();
+      this.learned.set(n.midi, list);
+    }
+  }
 
   /** Alguma nota mais grave que soa (com fundamental) tem esta como harmônico? */
   private coveredByLower(midi: number): boolean {
@@ -314,21 +407,24 @@ export class ChordListener {
       // Com o timbre do órgão calibrado: cada harmônico k, 2k, 3k da nota
       // grave tem um volume esperado (fundamental × timbre). Nota de verdade
       // soma bem acima disso; só o registro (4', 2'…) fica perto.
-      if (this.profile) {
+      const prof = this.profileFor(low);
+      if (prof) {
         const a1 = this.magAt(b, f);
         let sumP = 0;
         let countP = 0;
         for (let j = 1; j <= 3; j++) {
           const h = j * k;
           if (f * h > 5000 || taken(f * h, ps)) continue;
-          const pred = a1 * (this.profile[h - 1] ?? this.profile[this.profile.length - 1] * (this.profile.length / h));
+          const ph = prof[h - 1] ?? (Number.isFinite(prof[prof.length - 1]) ? prof[prof.length - 1] * (prof.length / h) : NaN);
+          if (!Number.isFinite(ph)) continue;
+          const pred = a1 * ph;
           const obs = this.magAt(b, f * h);
           if (Math.max(obs, pred) < b.floor * 4) continue;
           sumP += obs / Math.max(pred, b.floor * 2);
           countP++;
         }
         if (countP >= 2) {
-          if (sumP / countP < PROFILE_MARGIN) return true;
+          if (sumP / countP < (k === 2 ? PROFILE_MARGIN_OCTAVE : PROFILE_MARGIN)) return true;
           continue;
         }
       }

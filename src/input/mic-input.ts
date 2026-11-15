@@ -3,6 +3,9 @@ import { AudioManager, AudioRecorder } from 'react-native-audio-api';
 import { MIC_FRAME_SIZE, PitchProcessor } from './pitch/pitch-processor';
 import type { GuideNote, InputSource, NoteEmitter } from './types';
 
+/** Timbre aprendido tocando: vale de um hino para o outro na mesma sessão. */
+const learned = new Map<number, number[][]>();
+
 /** Microfone no Android/iOS (react-native-audio-api). */
 export class MicInput implements InputSource {
   readonly kind = 'mic' as const;
@@ -34,6 +37,7 @@ export class MicInput implements InputSource {
     this.processor.setSensitivity(this.sensitivity);
     this.processor.setGuide(this.guide, this.context);
     this.processor.setProfile(this.profile);
+    this.processor.listener.learned = learned;
     const recorder = new AudioRecorder();
     const cb = recorder.onAudioReady(
       { sampleRate, bufferLength: MIC_FRAME_SIZE / 2, channelCount: 1 },

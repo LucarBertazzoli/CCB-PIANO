@@ -14,7 +14,8 @@ import { OrganRoom, SR, type StopName } from './helpers/organ-room';
  * Mede quantas notas tocadas o app perde e quantas ele “inventa” quando a
  * organista toca só parte do acorde. MIC_HOLD=3 segura o acorde 3 s;
  * MIC_DEBUG=1 lista cada nota inventada; MIC_CAL=1 calibra o timbre antes
- * (Dó3 sozinho com o registro).
+ * (Dó3 sozinho com o registro); MIC_LEARN=1 deixa o app aprender o timbre
+ * nos acordes inteiros (de um acorde para o outro).
  */
 
 const ALL: Voice[] = ['soprano', 'alto', 'tenor', 'bass', 'pedal'];
@@ -48,16 +49,22 @@ function calibrate(stop: StopName): number[] | null {
   return profile;
 }
 const profiles = new Map<StopName, number[] | null>();
+const learnedBy = new Map<StopName, Map<number, number[][]>>();
 
 /** Toca `played` e devolve as notas que o app marcou (entre as esperadas). */
 function run(chord: TimedNote[], played: TimedNote[], stop: StopName, spread: number): Set<string> {
-  const r = new OrganRoom({ seed: Math.floor(rnd() * 1e6) });
+  const r = new OrganRoom({ seed: Math.floor(rnd() * 1e6), ...(process.env.MIC_REVERB ? { reverb: Number(process.env.MIC_REVERB) } : {}) });
   const marked = new Set<string>();
   const byMidi = new Map<number, string[]>();
   for (const n of chord) byMidi.set(n.midi, [...(byMidi.get(n.midi) ?? []), n.id]);
   const p = new PitchProcessor(SR, (e) => {
     if (e.type === 'on') for (const id of byMidi.get(e.midi) ?? []) marked.add(id);
   });
+  if (process.env.MIC_LEARN) {
+    // O timbre aprendido continua de um acorde para o outro (como no app).
+    if (!learnedBy.has(stop)) learnedBy.set(stop, new Map());
+    p.listener.learned = learnedBy.get(stop)!;
+  }
   if (process.env.MIC_CAL) {
     if (!profiles.has(stop)) profiles.set(stop, calibrate(stop));
     p.setProfile(profiles.get(stop) ?? null);
@@ -97,6 +104,7 @@ function run(chord: TimedNote[], played: TimedNote[], stop: StopName, spread: nu
           for (const n of chord.filter((x) => !all.has(x.id))) {
             const ivs = chord.filter((m) => m.midi < n.midi).map((m) => n.midi - m.midi).filter((d) => OVERTONE_GAPS.includes(d));
             const key = `perdeu ${n.voice}:${ivs.length ? Math.min(...ivs) : '-'}`;
+            if (process.env.MIC_DEBUG) console.log(stop, 'perdeu', n.voice, n.midi, 'acorde', label(chord));
             why.set(key, (why.get(key) ?? 0) + 1);
           }
           // Só parte do acorde: o baixo sozinho, e o acorde sem o soprano.

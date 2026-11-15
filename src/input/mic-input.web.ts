@@ -1,6 +1,9 @@
 import { MIC_FRAME_SIZE, PitchProcessor } from './pitch/pitch-processor';
 import type { GuideNote, InputSource, NoteEmitter } from './types';
 
+/** Timbre aprendido tocando: vale de um hino para o outro na mesma sessão. */
+const learned = new Map<number, number[][]>();
+
 /** Microfone no navegador (getUserMedia + Web Audio). */
 export class MicInput implements InputSource {
   readonly kind = 'mic' as const;
@@ -34,6 +37,7 @@ export class MicInput implements InputSource {
     this.processor.setSensitivity(this.sensitivity);
     this.processor.setGuide(this.guide, this.context);
     this.processor.setProfile(this.profile);
+    this.processor.listener.learned = learned;
     this.node.onaudioprocess = (e) => this.processor?.push(e.inputBuffer.getChannelData(0));
     source.connect(this.node);
     // Conecta a um ganho zero para o nó processar sem tocar o som de volta.

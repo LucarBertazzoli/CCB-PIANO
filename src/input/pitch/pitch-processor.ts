@@ -69,6 +69,8 @@ export class PitchProcessor {
    * timbre (ou null se não deu para medir) e o reconhecimento passa a usá-lo.
    */
   calibrate(midi: number, done: (profile: number[] | null) => void): void {
+    // Registro novo: o timbre aprendido antes não vale mais.
+    this.listener.learned.clear();
     this.calibration = { midi, samples: [], done };
   }
 
