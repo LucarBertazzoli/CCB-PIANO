@@ -86,6 +86,32 @@ describe('microfone no órgão: acordes', () => {
     expect(listen([{ midi: 55 }], [55, 67, 74, 79])).toEqual([55]);
   });
 
+  it('registro cheio (8′+4′+2′) calibrado: a oitava do registro não vira tecla tocada', () => {
+    // Calibração: Dó2 sozinho com o registro.
+    const cal = new PitchProcessor(SR, () => {});
+    const room = new OrganRoom({ seed: 99 });
+    let profile: number[] | null = null;
+    cal.calibrate(48, (x) => (profile = x));
+    cal.push(room.render(SR * 0.3));
+    room.strike(48, 'cheio');
+    for (let i = 0; i < 60 && !profile; i++) cal.push(room.render(SR * 0.05));
+    expect(profile).not.toBeNull();
+
+    const run = (played: number[], guide: number[]) => {
+      const r = new OrganRoom({ seed: 5 });
+      const events: number[] = [];
+      const p = new PitchProcessor(SR, (e) => e.type === 'on' && events.push(e.midi));
+      p.setProfile(profile);
+      p.setGuide(guide.map((m, i) => ({ id: `n${i}`, midi: m })), guide);
+      p.push(r.render(SR * 0.3));
+      for (const m of played) r.strike(m, 'cheio');
+      for (let i = 0; i < 30; i++) p.push(r.render(SR * 0.05));
+      return events.sort((a, b) => a - b);
+    };
+    expect(run([48], [48, 60, 67, 72])).toEqual([48]);
+    expect(run([48, 60, 64, 67], [48, 60, 64, 67])).toEqual([48, 60, 64, 67]);
+  });
+
   it('tocando só a mão esquerda, a pedaleira não é marcada', () => {
     expect(listen([{ midi: 48 }], [36, 48], {}, { pedal: [36] })).toEqual([48]);
   });

@@ -76,6 +76,8 @@ const COMPUTER_KEYS: Record<string, { midi: number; row: 'upper' | 'lower' }> = 
     ]),
   ),
 };
+/** Nota tocada na calibração do timbre: Dó2 (Dó do meio da mão esquerda). */
+const CALIBRATION_MIDI = 48;
 const UNIT_NAME: Record<string, string> = { q: 'semínimas', e: 'colcheias', 'q.': 'semínimas pontuadas', h: 'mínimas' };
 
 /**
@@ -157,6 +159,20 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
 
   // ------------------------------------------------------------- entrada (tela/MIDI/microfone)
   const [inputError, setInputError] = useState<string | null>(inputHub.error);
+  // Timbre do órgão calibrado: vale para todos os hinos.
+  const [calib, setCalib] = useState<'idle' | 'listening' | 'fail'>('idle');
+  useEffect(() => inputHub.setProfile(settings.micProfile), [settings.micProfile]);
+  const calibrate = () => {
+    setCalib('listening');
+    void inputHub.calibrate(CALIBRATION_MIDI).then((profile) => {
+      if (profile) {
+        settings.set({ micProfile: profile });
+        setCalib('idle');
+      } else {
+        setCalib('fail');
+      }
+    });
+  };
   const [heard, setHeard] = useState<number | null>(null);
   useEffect(() => inputHub.onStatusChange(() => setInputError(inputHub.error)), []);
   useEffect(() => {
@@ -500,6 +516,29 @@ export function PracticePlayer({ song, onExit }: PracticePlayerProps) {
         ))}
       </View>
       <Glass>
+        {settings.inputSource === 'mic' ? (
+          <Row
+            label="Timbre do órgão"
+            hint={
+              calib === 'listening'
+                ? `Toque e segure ${noteName(CALIBRATION_MIDI, settings.notation, { withOctave: true })} sozinho, com o registro que vai usar…`
+                : calib === 'fail'
+                  ? 'Não deu para ouvir. Tente de novo, com o celular mais perto do órgão'
+                  : settings.micProfile
+                    ? 'Calibrado. Se trocar o registro, calibre de novo'
+                    : 'Deixa o app separar os harmônicos do registro das teclas tocadas'
+            }>
+            <Pressable
+              onPress={calib === 'listening' ? undefined : calibrate}
+              accessibilityRole="button"
+              accessibilityLabel="Calibrar o timbre do órgão"
+              style={({ pressed }) => [s.pill, { backgroundColor: calib === 'listening' ? pal.primary : pal.surfaceStrong, borderColor: pal.border }, pressed && { opacity: 0.7 }]}>
+              <Text style={[type.bold, s.pillText, { color: calib === 'listening' ? pal.primaryText : pal.text }]}>
+                {calib === 'listening' ? 'Ouvindo…' : settings.micProfile ? 'Calibrar de novo' : 'Calibrar'}
+              </Text>
+            </Pressable>
+          </Row>
+        ) : null}
         {settings.inputSource === 'mic' ? (
           <Row label="Sensibilidade" hint="Aumente se o app não ouvir; diminua se ouvir barulho">
             <Segmented
@@ -909,5 +948,7 @@ const s = StyleSheet.create({
   tempoInput: { fontSize: 30, textAlign: 'center', minWidth: 90, padding: 0, borderBottomWidth: 1 },
   tempoLabel: { fontSize: 10, marginTop: 4, textAlign: 'center' },
   heard: { fontSize: 20, minWidth: 60, textAlign: 'right' },
+  pill: { height: 34, borderRadius: 17, paddingHorizontal: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  pillText: { fontSize: 13 },
   preview: { width: 88, height: 30, borderRadius: 6, overflow: 'hidden' },
 });

@@ -10,6 +10,7 @@ export class MicInput implements InputSource {
   processor: PitchProcessor | null = null;
   private guide: GuideNote[] | null = null;
   private context: number[] = [];
+  private profile: number[] | null = null;
 
   constructor(private sensitivity = 0.01) {}
 
@@ -32,6 +33,7 @@ export class MicInput implements InputSource {
     this.processor = new PitchProcessor(this.ctx.sampleRate, emit);
     this.processor.setSensitivity(this.sensitivity);
     this.processor.setGuide(this.guide, this.context);
+    this.processor.setProfile(this.profile);
     this.node.onaudioprocess = (e) => this.processor?.push(e.inputBuffer.getChannelData(0));
     source.connect(this.node);
     // Conecta a um ganho zero para o nó processar sem tocar o som de volta.
@@ -44,6 +46,19 @@ export class MicInput implements InputSource {
     this.guide = notes;
     this.context = context;
     this.processor?.setGuide(notes, context);
+  }
+
+  setProfile(profile: number[] | null): void {
+    this.profile = profile;
+    this.processor?.setProfile(profile);
+  }
+
+  calibrate(midi: number, done: (profile: number[] | null) => void): void {
+    if (!this.processor) return done(null);
+    this.processor.calibrate(midi, (p) => {
+      if (p) this.profile = p;
+      done(p);
+    });
   }
 
   stop(): void {

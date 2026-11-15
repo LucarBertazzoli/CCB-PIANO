@@ -13,7 +13,8 @@ import { OrganRoom, SR, type StopName } from './helpers/organ-room';
  *   MIC_EVAL=1 npx jest mic-eval        (MIC_QUICK=1: amostra menor, ~1 min)
  * Mede quantas notas tocadas o app perde e quantas ele “inventa” quando a
  * organista toca só parte do acorde. MIC_HOLD=3 segura o acorde 3 s;
- * MIC_DEBUG=1 lista cada nota inventada.
+ * MIC_DEBUG=1 lista cada nota inventada; MIC_CAL=1 calibra o timbre antes
+ * (Dó3 sozinho com o registro).
  */
 
 const ALL: Voice[] = ['soprano', 'alto', 'tenor', 'bass', 'pedal'];
@@ -35,6 +36,19 @@ function chords(hymns: string[], perHymn: number): TimedNote[][] {
 let seed = 11;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
+/** Calibra o timbre: toca Dó3 sozinho com o registro, como a organista faria. */
+function calibrate(stop: StopName): number[] | null {
+  const r = new OrganRoom({ seed: 99 });
+  const p = new PitchProcessor(SR, () => {});
+  let profile: number[] | null = null;
+  p.calibrate(48, (x) => (profile = x));
+  p.push(r.render(SR * 0.3));
+  r.strike(48, stop);
+  for (let i = 0; i < 60 && !profile; i++) p.push(r.render(SR * 0.05));
+  return profile;
+}
+const profiles = new Map<StopName, number[] | null>();
+
 /** Toca `played` e devolve as notas que o app marcou (entre as esperadas). */
 function run(chord: TimedNote[], played: TimedNote[], stop: StopName, spread: number): Set<string> {
   const r = new OrganRoom({ seed: Math.floor(rnd() * 1e6) });
@@ -44,6 +58,10 @@ function run(chord: TimedNote[], played: TimedNote[], stop: StopName, spread: nu
   const p = new PitchProcessor(SR, (e) => {
     if (e.type === 'on') for (const id of byMidi.get(e.midi) ?? []) marked.add(id);
   });
+  if (process.env.MIC_CAL) {
+    if (!profiles.has(stop)) profiles.set(stop, calibrate(stop));
+    p.setProfile(profiles.get(stop) ?? null);
+  }
   p.setGuide(
     chord.map((n) => ({ id: n.id, midi: n.midi, pedal: n.voice === 'pedal' })),
     chord.map((n) => n.midi),

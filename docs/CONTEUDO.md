@@ -24,7 +24,11 @@ O importador:
 - guarda título, autor, tonalidade, compasso e metrônomo (♩, ♪, ♩. ou mínima);
 - gera `registry.ts` (índice e carregamento sob demanda).
 
-No órgão, o app monta o **arranjo da organista** (`src/content/organ.ts`):
+No órgão, o app usa o **arranjo do Hinário nº 5 para órgão impresso** em
+378 hinos (campo `organ` de cada arquivo, gerado por `scripts/orgao`, que lê o
+PDF vetorial do hinário de órgão): quais notas a organista ataca e quais
+segura, ligaduras, respirações e a oitava de cada mão e da pedaleira. Nos
+outros hinos o app monta o arranjo automaticamente (`src/content/organ.ts`):
 mão direita soprano+contralto, mão esquerda tenor+baixo com notas repetidas
 seguradas (legato) e pedaleira a partir do baixo. O teste
 `src/__tests__/hymnal.test.ts` confere o hino 1 e o hino 5 com o hinário de

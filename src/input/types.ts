@@ -34,4 +34,8 @@ export interface InputSource {
   stop(): void;
   /** Notas esperadas agora (`null` = nenhum hino tocando). Só o microfone usa. */
   setGuide?(notes: GuideNote[] | null, context?: number[]): void;
+  /** Timbre do órgão calibrado (microfone). */
+  setProfile?(profile: number[] | null): void;
+  /** Mede o timbre tocando `midi` sozinha (microfone). */
+  calibrate?(midi: number, done: (profile: number[] | null) => void): void;
 }

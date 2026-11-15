@@ -52,6 +52,8 @@ const HARMONICS = 8;
 const MIN_RELATIVE = 0.12;
 /** Abaixo desta frequência a janela longa é necessária para separar meio tom. */
 const LOW_HZ = 220;
+/** Com timbre calibrado: quanto acima do esperado o harmônico precisa estar. */
+const PROFILE_MARGIN = 1.4;
 /** A partir desta nota o ataque repetido é medido na janela curta. */
 const QUICK_SHORT_FROM = 60;
 /** Harmônicos testados (oitava, 12ª, 2 oitavas, 17ª, 19ª, 3 oitavas) e a distância em semitons. */
@@ -214,6 +216,21 @@ export class ChordListener {
     return best;
   }
 
+  /**
+   * Timbre do órgão (registro em uso), medido tocando uma nota sozinha:
+   * volume de cada harmônico (1º a 8º) em relação à fundamental.
+   */
+  profile: number[] | null = null;
+
+  /** Mede o timbre de uma nota soando sozinha (uma amostra por quadro). */
+  measureProfile(spectra: Spectra, midi: number): number[] | null {
+    const b = band(spectra.long, this.hz.long);
+    const f = midiToFrequency(midi);
+    const a1 = this.peakNear(b, f);
+    if (a1 <= 0) return null;
+    return Array.from({ length: HARMONICS }, (_, i) => (i === 0 ? 1 : this.magAt(b, f * (i + 1)) / a1));
+  }
+
   /** Diagnóstico: quanto os harmônicos da nota se destacam (por quadro). */
   overtoneRatio = new Map<number, number>();
 
@@ -286,6 +303,27 @@ export class ChordListener {
       // forte o Si♭2).
       const pedalSub = (p: number) => p < 52 && near(f, midiToFrequency(p - 12));
       if (!cands.includes(low) && (f < 80 || taken(f, ps) || cands.some(pedalSub) || this.peakNear(b, f) === 0)) continue;
+      // Com o timbre do órgão calibrado: cada harmônico k, 2k, 3k da nota
+      // grave tem um volume esperado (fundamental × timbre). Nota de verdade
+      // soma bem acima disso; só o registro (4', 2'…) fica perto.
+      if (this.profile) {
+        const a1 = this.magAt(b, f);
+        let sumP = 0;
+        let countP = 0;
+        for (let j = 1; j <= 3; j++) {
+          const h = j * k;
+          if (f * h > 5000 || taken(f * h, ps)) continue;
+          const pred = a1 * (this.profile[h - 1] ?? this.profile[this.profile.length - 1] * (this.profile.length / h));
+          const obs = this.magAt(b, f * h);
+          if (Math.max(obs, pred) < b.floor * 4) continue;
+          sumP += obs / Math.max(pred, b.floor * 2);
+          countP++;
+        }
+        if (countP >= 2) {
+          if (sumP / countP < PROFILE_MARGIN) return true;
+          continue;
+        }
+      }
       // Razão de cada harmônico (k, 2k, 3k) sobre a média dos vizinhos. Os
       // de cima pesam igual: neles a nota de verdade se destaca muito mais,
       // porque os harmônicos altos da nota grave já são fracos.

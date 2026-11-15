@@ -44,6 +44,8 @@ export interface SettingsState {
   micSensitivity: number;
   /** Latência do microfone (s) para o modo Tocar. */
   micLatency: number;
+  /** Timbre do órgão calibrado (harmônicos do registro em uso); null = sem calibrar. */
+  micProfile: number[] | null;
   /** Velocidade de queda das notas (pixels por segundo). */
   fallSpeed: number;
   volume: number;
@@ -81,6 +83,7 @@ const DEFAULTS: Omit<SettingsState, 'set'> = {
   inputSource: 'mic',
   micSensitivity: 0.004,
   micLatency: 0.12,
+  micProfile: null,
   fallSpeed: 150,
   volume: 0.8,
   playAccompaniment: true,

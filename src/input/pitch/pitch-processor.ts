@@ -15,6 +15,13 @@ const HOP = 1024;
 /** Subida de volume que conta como ataque, e saltos (~23 ms) para assentar. */
 const ATTACK_RISE = 1.4;
 const SETTLE_HOPS = 2;
+/** Quadros (~23 ms cada) medidos na calibração do timbre. */
+const CALIBRATION_FRAMES = 40;
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
 
 /**
  * Recebe o áudio do microfone (blocos de qualquer tamanho) e emite notas.
@@ -40,6 +47,8 @@ export class PitchProcessor {
   private previous = new Float32Array(MIC_FRAME_SIZE);
   /** Saltos de análise desde o último ataque (tecla apertada). */
   private sinceAttack = 99;
+  /** Calibração do timbre em andamento: nota tocada e medidas por quadro. */
+  private calibration: { midi: number; samples: number[][]; done: (profile: number[] | null) => void } | null = null;
   /** Último volume medido (medidor na tela). */
   lastRms = 0;
   lastMidi: number | null = null;
@@ -52,6 +61,19 @@ export class PitchProcessor {
       sampleRate,
       sizes: { long: SPECTRUM_SIZE, mid: MID_SIZE, short: SHORT_SIZE },
     });
+  }
+
+  /**
+   * Calibra o timbre do órgão: a organista toca e segura `midi` sozinha com o
+   * registro que vai usar. Depois de ~1 s de som estável, `done` recebe o
+   * timbre (ou null se não deu para medir) e o reconhecimento passa a usá-lo.
+   */
+  calibrate(midi: number, done: (profile: number[] | null) => void): void {
+    this.calibration = { midi, samples: [], done };
+  }
+
+  setProfile(profile: number[] | null): void {
+    this.listener.profile = profile;
   }
 
   setSensitivity(minRms: number): void {
@@ -100,6 +122,24 @@ export class PitchProcessor {
     }
     const before = rms(this.previous);
     this.sinceAttack = level >= this.tracker.minRms && level > before * ATTACK_RISE ? 0 : this.sinceAttack + 1;
+
+    if (this.calibration && this.total >= SPECTRUM_SIZE && level >= this.tracker.minRms && this.sinceAttack >= SETTLE_HOPS + 4) {
+      for (let i = 0; i < SPECTRUM_SIZE; i++) this.frame[i] = this.ring[(this.write + i) % SPECTRUM_SIZE];
+      const c = this.calibration;
+      const p = this.listener.measureProfile(
+        { long: this.spectrum.compute(this.frame), mid: new Float32Array(0), short: new Float32Array(0) },
+        c.midi,
+      );
+      if (p) c.samples.push(p);
+      if (c.samples.length >= CALIBRATION_FRAMES) {
+        // Mediana de cada harmônico (aguenta um quadro ruim).
+        const profile = p ? p.map((_, h) => median(c.samples.map((x) => x[h]))) : null;
+        this.calibration = null;
+        this.listener.profile = profile;
+        c.done(profile);
+      }
+      return;
+    }
 
     if (this.guided) {
       if (this.listener.guide.length === 0 || this.total < SPECTRUM_SIZE / 2) return;

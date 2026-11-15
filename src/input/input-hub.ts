@@ -17,6 +17,7 @@ class InputHub {
   private statusListeners = new Set<() => void>();
   private guide: GuideNote[] | null = null;
   private context: number[] = [];
+  private profile: number[] | null = null;
 
   get kind(): InputSourceKind {
     return this._kind;
@@ -61,6 +62,29 @@ class InputHub {
     this.external?.setGuide?.(notes, context);
   }
 
+  /** Timbre do órgão calibrado (fica valendo para o microfone). */
+  setProfile(profile: number[] | null): void {
+    this.profile = profile;
+    this.external?.setProfile?.(profile);
+  }
+
+  /**
+   * Calibra o timbre: a organista toca e segura `midi` sozinha. Resolve com o
+   * timbre medido (ou null: microfone desligado ou som instável).
+   */
+  calibrate(midi: number, timeoutMs = 8000): Promise<number[] | null> {
+    const src = this.external;
+    if (!src?.calibrate) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), timeoutMs);
+      src.calibrate!(midi, (p) => {
+        clearTimeout(timer);
+        if (p) this.profile = p;
+        resolve(p);
+      });
+    });
+  }
+
   /** Liga a fonte escolhida. O teclado na tela funciona sempre. */
   async use(kind: InputSourceKind, opts: { micSensitivity?: number } = {}): Promise<void> {
     this.stopExternal();
@@ -74,6 +98,7 @@ class InputHub {
       } else {
         try {
           source.setGuide?.(this.guide, this.context);
+          source.setProfile?.(this.profile);
           await source.start(this.emit);
           this.external = source;
         } catch (err) {
