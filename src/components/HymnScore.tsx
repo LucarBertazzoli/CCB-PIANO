@@ -308,19 +308,47 @@ export const HymnScore = memo(function HymnScore({
     bass: createSpeller(song.keySignature),
     pedal: createSpeller(song.keySignature),
   };
-  const noteLayer = timeline.notes.map((n) => {
+  // Primeiro a posição de cada nota (o soletrador guarda os acidentes do
+  // compasso, então roda uma vez por nota, na ordem).
+  const placed = timeline.notes.map((n) => {
     const rel = n.beat - timeline.originBeat;
     const m = measureOf(rel);
-    const i = L.sys[m];
     const staff: StaffName = n.voice === 'pedal' ? 'pedal' : n.hand === 'right' ? 'treble' : 'bass';
     const sp = spellers[staff](n.midi, String(m));
-    const cx = beatX(rel);
-    const cy = yOf(i, sp.step, staff);
-    const color = colorFor(pal, n, resultOf(n.id));
     const { base, dots } = splitDuration(n.beats);
-    const hollow = base >= 2;
     const middleStep = staff === 'treble' ? 34 : 22;
     const up = n.voice && n.voice !== 'pedal' ? UP_VOICES.includes(n.voice) : sp.step < middleStep;
+    return { n, rel, m, staff, sp, base, dots, up };
+  });
+  // Duas vozes a uma segunda de distância (ex.: contralto Mi e soprano Fá
+  // juntos): as cabeças se sobreporiam e pareceria uma nota só. Como no
+  // hinário impresso, a voz de cima vai um pouco para a direita. O mesmo no
+  // uníssono com figuras diferentes (uma cheia e outra vazada).
+  const together = new Map<string, typeof placed>();
+  for (const q of placed) {
+    const k = `${q.staff}|${q.rel.toFixed(4)}`;
+    together.set(k, [...(together.get(k) ?? []), q]);
+  }
+  const shiftOf = (q: (typeof placed)[number]) => {
+    if (!q.up || q.staff === 'pedal') return 0;
+    const others = together.get(`${q.staff}|${q.rel.toFixed(4)}`) ?? [];
+    const clash = others.some(
+      (o) => o !== q && !o.up && (Math.abs(o.sp.step - q.sp.step) === 1 || (o.sp.step === q.sp.step && (o.base >= 2) !== (q.base >= 2))),
+    );
+    return clash ? half * 2.5 : 0;
+  };
+  const noteLayer = placed.map((q) => {
+    const { n, rel, m, staff, sp, base, dots, up } = q;
+    const i = L.sys[m];
+    const shift = shiftOf(q);
+    const cx = beatX(rel) + shift;
+    // Acidente da nota deslocada: fica à esquerda das duas cabeças (e mais
+    // à esquerda ainda se a outra nota também tiver acidente).
+    const otherSign = shift > 0 && (together.get(`${staff}|${rel.toFixed(4)}`) ?? []).some((o) => o !== q && o.sp.sign);
+    const signX = shift > 0 ? beatX(rel) - gap * (otherSign ? 3.6 : 2.1) : cx - gap * 2.1;
+    const cy = yOf(i, sp.step, staff);
+    const color = colorFor(pal, n, resultOf(n.id));
+    const hollow = base >= 2;
     const stemX = up ? cx + half * 1.22 : cx - half * 1.22;
     const stemEnd = up ? cy - gap * 3.2 : cy + gap * 3.2;
     const bottomStep = staff === 'treble' ? 30 : 18;
@@ -333,7 +361,7 @@ export const HymnScore = memo(function HymnScore({
           <Line key={s} x1={cx - half * 2.1} x2={cx + half * 2.1} y1={yOf(i, s, staff)} y2={yOf(i, s, staff)} stroke={STAFF_COLOR} strokeWidth={1} />
         ))}
         {sp.sign ? (
-          <SvgText x={cx - gap * 2.1} y={cy + half * 0.95} fontSize={gap * 1.7} fill={color}>
+          <SvgText x={signX} y={cy + half * 0.95} fontSize={gap * 1.7} fill={color}>
             {sp.sign}
           </SvgText>
         ) : null}

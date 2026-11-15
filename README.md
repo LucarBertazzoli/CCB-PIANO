@@ -61,7 +61,11 @@ No computador, as fileiras Q W E R… e Z X C V… do teclado tocam os manuais.
 - **Modos**: só ouvir (o app toca tudo), modo espera (as notas esperam o aluno —
   acordes exigem todas as notas) e no andamento (precisão e estrelas).
 - **Entradas**: teclado na tela (multitoque), **MIDI** (web — Chrome/Edge) e
-  **microfone** (Android/iOS/web) com detecção de altura YIN em TypeScript puro.
+  **microfone** (Android/iOS/web). Com um hino tocando, o microfone confere no
+  espectro cada nota esperada do acorde (4 vozes + pedaleira) e descarta as
+  que são só harmônicos de uma nota mais grave (Dó2 também soa Dó3, Sol3,
+  Dó4…), esperando o ataque assentar antes de confirmar. Sem hino, usa YIN.
+  Avaliação com acordes reais: `MIC_EVAL=1 npx jest mic-eval`.
 - **Som**: piano com gravações reais de um piano de cauda (Salamander Grand
   Piano, CC BY 3.0 — `assets/audio/piano/LICENSE.txt`); órgão com tubos
   sintetizados (Principal 8' + 4' + 2', coro, sopro do ataque, Subbaixo 16'

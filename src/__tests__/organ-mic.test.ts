@@ -79,6 +79,22 @@ describe('microfone no órgão: acordes', () => {
     expect(listen([{ midi: 52 }], [64])).toEqual([]);
   });
 
+  it('tocando uma nota só, o app não marca as outras (oitava, 12ª, duas oitavas acima)', () => {
+    // Dó2 soa também Dó3, Sol3 e Dó4 (harmônicos): não são teclas tocadas.
+    expect(listen([{ midi: 48 }], [48, 60, 67, 72])).toEqual([48]);
+    expect(listen([{ midi: 48, stop: 'flauta' }], [48, 60, 67, 72])).toEqual([48]);
+    expect(listen([{ midi: 55 }], [55, 67, 74, 79])).toEqual([55]);
+  });
+
+  it('tocando só a mão esquerda, a pedaleira não é marcada', () => {
+    expect(listen([{ midi: 48 }], [36, 48], {}, { pedal: [36] })).toEqual([48]);
+  });
+
+  it('acorde com oitava dobrada: as duas notas contam quando as duas são tocadas', () => {
+    expect(listen([48, 60, 64, 67].map((midi) => ({ midi })), [48, 60, 64, 67])).toEqual([48, 60, 64, 67]);
+    expect(listen([43, 55, 59, 62, 67].map((midi) => ({ midi })), [43, 55, 59, 62, 67])).toEqual([43, 55, 59, 62, 67]);
+  });
+
   it('silêncio da igreja (ruído + zumbido) não vira nota', () => {
     expect(listen([], C)).toEqual([]);
   });

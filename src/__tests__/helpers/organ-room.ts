@@ -70,10 +70,10 @@ export class OrganRoom {
     return this.seed / 2147483647 - 0.5;
   }
 
-  /** Aperta uma tecla. `octave` −1 = registro de 16' (pedaleira). */
-  strike(midi: number, stop: StopName = 'principal', octave = 0, gain = 1): Voice {
+  /** Aperta uma tecla. `octave` −1 = registro de 16' (pedaleira); `cents` desafina só esta nota. */
+  strike(midi: number, stop: StopName = 'principal', octave = 0, gain = 1, cents = 0): Voice {
     const v: Voice = {
-      freq: midiToFrequency(midi) * 2 ** octave * 2 ** (this.opts.detuneCents / 1200),
+      freq: midiToFrequency(midi) * 2 ** octave * 2 ** ((this.opts.detuneCents + cents) / 1200),
       partials: STOPS[stop],
       phase: STOPS[stop].map(() => this.rnd() * 6.28),
       age: 0,

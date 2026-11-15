@@ -12,6 +12,9 @@ const SPECTRUM_SIZE = 8192;
 const MID_SIZE = 4096;
 const SHORT_SIZE = 2048;
 const HOP = 1024;
+/** Subida de volume que conta como ataque, e saltos (~23 ms) para assentar. */
+const ATTACK_RISE = 1.4;
+const SETTLE_HOPS = 2;
 
 /**
  * Recebe o áudio do microfone (blocos de qualquer tamanho) e emite notas.
@@ -34,6 +37,9 @@ export class PitchProcessor {
   private sinceHop = 0;
   private total = 0;
   private guided = false;
+  private previous = new Float32Array(MIC_FRAME_SIZE);
+  /** Saltos de análise desde o último ataque (tecla apertada). */
+  private sinceAttack = 99;
   /** Último volume medido (medidor na tela). */
   lastRms = 0;
   lastMidi: number | null = null;
@@ -86,6 +92,14 @@ export class PitchProcessor {
     }
     const level = rms(this.recent);
     this.lastRms = level;
+    // Ataque: o volume subiu bem em relação ao bloco anterior. Nos primeiros
+    // instantes de um ataque o som se espalha por frequências vizinhas e
+    // parece ter notas que não estão lá; espera assentar (~50 ms).
+    for (let i = 0; i < MIC_FRAME_SIZE; i++) {
+      this.previous[i] = this.ring[(this.write - 2 * MIC_FRAME_SIZE + i + 2 * SPECTRUM_SIZE) % SPECTRUM_SIZE];
+    }
+    const before = rms(this.previous);
+    this.sinceAttack = level >= this.tracker.minRms && level > before * ATTACK_RISE ? 0 : this.sinceAttack + 1;
 
     if (this.guided) {
       if (this.listener.guide.length === 0 || this.total < SPECTRUM_SIZE / 2) return;
@@ -95,7 +109,8 @@ export class PitchProcessor {
         mid: this.midSpectrum.compute(this.frame.subarray(SPECTRUM_SIZE - MID_SIZE)),
         short: this.shortSpectrum.compute(this.recent),
       };
-      for (const ev of this.listener.process(spectra, level >= this.tracker.minRms)) this.send(ev.type, ev.midi);
+      const settled = this.sinceAttack >= SETTLE_HOPS;
+      for (const ev of this.listener.process(spectra, level >= this.tracker.minRms, settled)) this.send(ev.type, ev.midi);
       return;
     }
 
