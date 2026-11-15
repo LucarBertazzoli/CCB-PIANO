@@ -142,7 +142,10 @@ export class ChordListener {
       const quick = this.quickLevel(spectra, e.note.midi);
       // Só exige tocar de novo quando a MESMA voz repete a nota. Se outra voz
       // segura essa altura (uníssono), no órgão é a mesma tecla: já vale.
-      if (e.needsRestrike === null) e.needsRestrike = present && !!e.note.restrike;
+      // Se uma nota mais grave que soa tem esta como harmônico (Mi♭3 soa
+      // também Mi♭4), o som não cai quando a tecla é solta: não dá para ouvir
+      // o novo ataque, então não se exige.
+      if (e.needsRestrike === null) e.needsRestrike = present && !!e.note.restrike && !this.coveredByLower(e.note.midi);
 
       if (e.confirmed) {
         // Já contou: só acompanha quando a tecla é solta (para a tela).
@@ -221,6 +224,11 @@ export class ChordListener {
    * volume de cada harmônico (1º a 8º) em relação à fundamental.
    */
   profile: number[] | null = null;
+
+  /** Alguma nota mais grave que soa (com fundamental) tem esta como harmônico? */
+  private coveredByLower(midi: number): boolean {
+    return [...this.strong].some((m) => m < midi && Object.values(OVERTONE_SEMITONES).includes(midi - m));
+  }
 
   /** Mede o timbre de uma nota soando sozinha (uma amostra por quadro). */
   measureProfile(spectra: Spectra, midi: number): number[] | null {
