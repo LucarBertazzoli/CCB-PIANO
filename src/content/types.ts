@@ -73,4 +73,6 @@ export interface Song {
   tags?: string[];
   /** Origem/licença do arranjo. */
   credits?: string;
+  /** Arranjo de órgão como no hinário impresso (quando houver). */
+  organNotes?: NoteEvent[];
 }

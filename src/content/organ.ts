@@ -7,8 +7,9 @@ import type { NoteEvent, Song } from './types';
  *  - legato do órgão: notas repetidas nas vozes internas e no baixo viram uma
  *    nota só, segurada (o soprano continua articulando a melodia).
  *
- * É uma adaptação automática a partir das 4 vozes; o dedilhado e pequenas
- * escolhas do hinário impresso podem variar.
+ * Quando o hino tem o arranjo do hinário de órgão impresso (`organNotes`,
+ * importado do PDF), ele é usado tal como está. Senão, o arranjo é montado
+ * automaticamente a partir das 4 vozes.
  */
 
 const EPS = 1e-6;
@@ -43,6 +44,11 @@ export function organArrangement(song: Song): Song {
   if (!song.notes.some((n) => n.voice)) return song;
   const cached = cache.get(song);
   if (cached) return cached;
+  if (song.organNotes?.length) {
+    const printed: Song = { ...song, notes: song.organNotes };
+    cache.set(song, printed);
+    return printed;
+  }
 
   const lines = song.lines ?? [0];
   const measures = song.measures ?? [];

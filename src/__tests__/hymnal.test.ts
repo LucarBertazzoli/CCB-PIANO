@@ -50,6 +50,21 @@ describe('hinário importado', () => {
     expect(voiceIn(o, 'pedal', 0, 3)).toEqual(['Ab2/1.5', 'Ab2/1.5']);
   });
 
+  it('arranjo do hinário de órgão impresso: notas válidas, sem tecla sobreposta', () => {
+    const withOrgan = hymnIndex.map((h) => loadHymn(`${h.kind}-${String(h.n).padStart(3, '0')}`)!).filter((s) => s.organNotes?.length);
+    expect(withOrgan.length).toBeGreaterThanOrEqual(370);
+    for (const s of withOrgan) {
+      const last = new Map<string, number>();
+      for (const n of [...s.organNotes!].sort((a, b) => a.start - b.start)) {
+        expect(n.duration).toBeGreaterThan(0);
+        const k = `${n.hand}${n.voice === 'pedal' ? 'p' : ''}:${n.midi}`;
+        expect(n.start).toBeGreaterThanOrEqual((last.get(k) ?? -1) - 1e-6);
+        last.set(k, n.start + n.duration);
+      }
+      expect(organArrangement(s).notes).toBe(s.organNotes);
+    }
+  });
+
   it('linhas viram trechos e os compassos do hinário viram barras', () => {
     const h = getSong('hino-001')!;
     expect(h.sections?.map((s) => s.label)).toEqual(['1ª linha', '2ª linha', '3ª linha', '4ª linha']);

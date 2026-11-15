@@ -20,6 +20,13 @@ export interface HymnFile {
   notes: [number, number, number, number][];
   /** [início, duração, pauta (0=Sol 1=Fá)] */
   rests: [number, number, number][];
+  /**
+   * Arranjo de órgão do hinário impresso (scripts/orgao): notas como a
+   * organista toca — ataques, notas seguradas, ligaduras, respirações e a
+   * oitava de cada mão e da pedaleira.
+   * [midi, início, duração, voz (0=S 1=A 2=T 3=B 4=pedal), pauta (0=MD 1=ME 2=pedaleira)]
+   */
+  organ?: [number, number, number, number, number][];
 }
 
 export interface HymnIndexEntry {

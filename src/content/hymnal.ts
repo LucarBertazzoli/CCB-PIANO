@@ -9,6 +9,8 @@ import type { NoteEvent, RestEvent, Song, Voice } from './types';
 
 const TPQ = 480;
 const VOICES: Voice[] = ['soprano', 'alto', 'tenor', 'bass'];
+const ORGAN_VOICES: Voice[] = ['soprano', 'alto', 'tenor', 'bass', 'pedal'];
+const ORGAN_HANDS = ['right', 'left', 'left'] as const;
 const cache = new Map<string, Song>();
 
 export function hymnId(kind: 'hino' | 'coro', n: number): string {
@@ -31,6 +33,14 @@ export function hymnFromFile(id: string, f: HymnFile): Song {
     duration: beats(dur),
     hand: v < 2 ? 'right' : 'left',
     voice: VOICES[v],
+  }));
+  const organNotes: NoteEvent[] | undefined = f.organ?.map(([midi, start, dur, v, staff], i) => ({
+    id: `o${i}`,
+    midi,
+    start: beats(start),
+    duration: beats(dur),
+    hand: ORGAN_HANDS[staff],
+    voice: ORGAN_VOICES[v],
   }));
   const rests: RestEvent[] = f.rests.map(([start, dur, staff]) => ({
     start: beats(start),
@@ -55,6 +65,7 @@ export function hymnFromFile(id: string, f: HymnFile): Song {
     difficulty: 3,
     instruments: ['organ', 'piano'],
     notes,
+    organNotes,
     rests,
     measures: f.measures.map(beats),
     lines,
